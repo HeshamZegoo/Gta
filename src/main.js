@@ -80,6 +80,12 @@ for(const side of [-1,1]){
  const forearm=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.35,6,10),skin);forearm.position.set(0,-.58,0);arm.add(forearm);
  const hand=new THREE.Mesh(new THREE.SphereGeometry(.085,12,10),skin);hand.position.y=-.8;arm.add(hand);arms.push(arm);
 }
+// Ambient pedestrians populate the sidewalks and make the city feel lived in.
+const pedestrians=[];
+for(let i=0;i<12;i++){
+ const npc=player.clone(true);npc.position.set(-300+i*52,0,i%2?18.8:-18.8);npc.rotation.y=i%2?Math.PI:0;
+ npc.userData.walkSpeed=(i%2?1:-1)*(1.05+(i%4)*.22);npc.userData.phase=i*.8;scene.add(npc);pedestrians.push(npc);
+}
 // Detailed game-ready placeholder coupe; asset loader pass will replace this with licensed GLB.
 function makeCar(color=0x1d526e){const car=new THREE.Group(),paint=new THREE.MeshPhysicalMaterial({color,metalness:.78,roughness:.23,clearcoat:1,clearcoatRoughness:.12}),glass=new THREE.MeshPhysicalMaterial({color:0x142b3a,roughness:.14,metalness:.48,clearcoat:1,transparent:true,opacity:.9});
 const body=new THREE.Mesh(new THREE.BoxGeometry(2.05,.48,4.5),paint);body.position.y=.68;body.castShadow=true;car.add(body);
@@ -215,7 +221,9 @@ function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c o
 document.querySelector('#enter').addEventListener('click',enterExit);document.querySelector('#run').addEventListener('pointerdown',()=>keys.ShiftLeft=true);for(const ev of ['pointerup','pointercancel'])document.querySelector('#run').addEventListener(ev,()=>keys.ShiftLeft=false);
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit();if(e.code==='KeyC'&&state.mode==='drive'){cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')}});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
-function update(dt){elapsed+=dt;for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
+function update(dt){elapsed+=dt;
+for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?Math.PI/2:-Math.PI/2}
+for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
 if(missionActive){missionTime-=dt;if(missionTime<=0)finishMission(false)}
 if(state.mode==='drive'&&activeCar.position.distanceTo(checkpoint.position)<6){
