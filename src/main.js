@@ -137,9 +137,11 @@ document.querySelector('#mission-start').addEventListener('click',()=>{missionAc
 setCheckpoint();
 // Real, textured CC0 vehicle models. Each asset is loaded once, then cloned into the world.
 const vehicleAssets=[
- {name:'Spectral GT RS',url:'https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb',targets:[mainCar,parked[0],parked[3],traffic[0],traffic[3],traffic[6]]},
- {name:'1990s JDM Coupe',url:'https://files.innerscene.com/library/generic-1990s-japanese-style-sports-coupe-ace64592/696200cf9cd0b540e6cd/generic-1990s-japanese-style-sports-coupe.glb',targets:[parked[1],parked[4],traffic[1],traffic[4],traffic[7]]},
- {name:'Mid-engine Supercar',url:'https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb',targets:[parked[2],parked[5],traffic[2],traffic[5]]}
+ {name:'Spectral GT RS',url:'https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb',targets:[mainCar,parked[0],traffic[0],traffic[6]]},
+ {name:'1990s JDM Coupe',url:'https://files.innerscene.com/library/generic-1990s-japanese-style-sports-coupe-ace64592/696200cf9cd0b540e6cd/generic-1990s-japanese-style-sports-coupe.glb',targets:[parked[1],traffic[1],traffic[4]]},
+ {name:'Mid-engine Supercar',url:'https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb',targets:[parked[2],traffic[2],traffic[7]]},
+ {name:'Four-door Sedan',url:'https://files.innerscene.com/library/sedan-car-42109739/75c64c1b3c8b03734314/sedan-original.glb',targets:[parked[3],traffic[3]]},
+ {name:'Compact SUV',url:'https://files.innerscene.com/library/generic-compact-suv-9f157ee5/fbafbd81b04c3d969f9c/generic-compact-suv.glb',targets:[parked[4],parked[5],traffic[5]]}
 ];
 let carAssetReady=false,loadedVehicleAssets=0;
 function finishVehicleLoading(){
