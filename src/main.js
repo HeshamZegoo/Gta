@@ -245,7 +245,7 @@ function update(dt){elapsed+=dt;
 for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?-Math.PI/2:Math.PI/2}
 for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
-if(missionActive){missionTime-=dt;if(missionTime<=0)finishMission(false)}
+if(missionActive){missionTime-=dt;document.querySelector('#mission-sub').textContent='Time trial · '+missionProgress+'/4 · '+Math.max(0,Math.ceil(missionTime))+'s';if(missionTime<=0)finishMission(false)}
 if(state.mode==='drive'&&activeCar.position.distanceTo(checkpoint.position)<6){
  if(missionActive){missionProgress++;checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;if(missionProgress>=4)finishMission(true);else{setCheckpoint();toast('Checkpoint '+missionProgress+'/4 · '+Math.ceil(missionTime)+'s left')}}
  else{cash+=500;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;setCheckpoint();toast('Checkpoint complete · +$500')}
