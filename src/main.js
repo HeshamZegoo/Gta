@@ -19,21 +19,67 @@ function road(x,z,w,d){const h=w>d,plane=new THREE.Mesh(new THREE.PlaneGeometry(
 for(let i=-3;i<=3;i++){road(i*105,0,1200,34);road(0,i*105,34,1200)}
 // PBR facade modules: varied heights, recessed window grids, roof plant and parapets.
 const facades=[0x999a94,0x778187,0xb2a99a,0x59666e,0x9b8978,0x687b80].map(c=>mat(c,.86));
-const windows=[0x203747,0x385464,0x182d3a].map(c=>new THREE.MeshPhysicalMaterial({color:c,roughness:.18,metalness:.42,clearcoat:.9}));
+const windows=[0x203747,0x385464,0x182d3a].map(c=>new THREE.MeshPhysicalMaterial({color:c,roughness:.16,metalness:.5,clearcoat:1}));
 let seed=817;const rand=()=>{seed=(seed*9301+49297)%233280;return seed/233280};
 const buildingCollision=[];
-function building(x,z,w,d,h){const group=new THREE.Group(),body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),facades[Math.floor(rand()*facades.length)]);body.position.y=h/2;body.castShadow=true;body.receiveShadow=true;group.add(body);const floors=Math.max(2,Math.floor(h/3.5)),cols=Math.max(2,Math.floor(w/3));for(let f=0;f<floors;f++){const y=1.2+f*(h-2)/floors;for(let c=0;c<cols;c++){const px=-w/2+(c+.5)*w/cols;for(const side of [-1,1]){const pane=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.65,w/cols*.65),Math.min(1.95,(h-2)/floors*.65),.06),windows[(f+c)%3]);pane.position.set(px,y,side*(d/2+.035));group.add(pane)}}}const roof=new THREE.Mesh(new THREE.BoxGeometry(w*.72,.45,d*.7),mat(0x555c60));roof.position.y=h+.22;group.add(roof);for(let i=0;i<2;i++){const ac=new THREE.Mesh(new THREE.BoxGeometry(1.4,.85,1.1),mat(0x727b80,.65,.25));ac.position.set((i-.5)*w*.27,h+.85,0);group.add(ac)}group.position.set(x,0,z);scene.add(group);buildingCollision.push({x,z,r:Math.max(w,d)*.56})}
+function facadeMap(base){
+ const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');
+ const hex='#'+base.toString(16).padStart(6,'0');x.fillStyle=hex;x.fillRect(0,0,512,512);
+ for(let i=0;i<9000;i++){const v=Math.floor(rand()*45);x.fillStyle='rgba('+v+','+v+','+v+','+(rand()*.12)+')';x.fillRect(rand()*512,rand()*512,2+rand()*5,2+rand()*5)}
+ for(let y=18;y<500;y+=48){for(let xx=18;xx<500;xx+=42){const ww=22+rand()*7,hh=25+rand()*8;x.fillStyle='#263b48';x.fillRect(xx, y, ww, hh);x.fillStyle='rgba(170,205,220,.35)';x.fillRect(xx+2,y+2,ww-4,2);x.fillStyle='rgba(7,15,20,.55)';x.fillRect(xx+ww*.48,y,2,hh);}}
+ const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
+}
+const facadeTextures=[0x999a94,0x778187,0xb2a99a,0x59666e,0x9b8978,0x687b80].map(facadeMap);
+function building(x,z,w,d,h){
+ const group=new THREE.Group(),idx=Math.floor(rand()*facades.length);
+ const surface=new THREE.MeshStandardMaterial({map:facadeTextures[idx],color:0xffffff,roughness:.9,metalness:.08});
+ const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),surface);body.position.y=h/2;body.castShadow=true;body.receiveShadow=true;group.add(body);
+ const floors=Math.max(2,Math.floor(h/3.5)),cols=Math.max(2,Math.floor(w/3));
+ const frame=mat(0x303a40,.62,.35),balcony=mat(0x747b7e,.72,.25);
+ for(let f=0;f<floors;f++){
+  const y=1.2+f*(h-2)/floors;
+  for(let c=0;c<cols;c++){
+   const px=-w/2+(c+.5)*w/cols;
+   for(const side of [-1,1]){
+    const pane=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.65,w/cols*.65),Math.min(1.95,(h-2)/floors*.65),.075),windows[(f+c+idx)%3]);
+    pane.position.set(px,y,side*(d/2+.05));group.add(pane);
+    const sill=new THREE.Mesh(new THREE.BoxGeometry(Math.min(1.85,w/cols*.78),.09,.18),frame);sill.position.set(px,y-.98,side*(d/2+.08));group.add(sill);
+    if(rand()>.76){const slab=new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.5,w/cols*.9),.13,.85),balcony);slab.position.set(px,y-.9,side*(d/2+.42));group.add(slab);const rail=new THREE.Mesh(new THREE.BoxGeometry(Math.min(2.5,w/cols*.9),.52,.055),chrome);rail.position.set(px,y-.62,side*(d/2+.78));group.add(rail)}
+   }
+  }
+ }
+ const roof=new THREE.Mesh(new THREE.BoxGeometry(w*.9,.35,d*.9),mat(0x555c60));roof.position.y=h+.17;group.add(roof);
+ for(let i=0;i<2+Math.floor(rand()*3);i++){const ac=new THREE.Mesh(new THREE.BoxGeometry(1.4,.85,1.1),mat(0x727b80,.65,.25));ac.position.set((rand()-.5)*w*.55,h+.72,(rand()-.5)*d*.45);group.add(ac)}
+ const storefront=new THREE.Mesh(new THREE.BoxGeometry(w*.72,2.4,.12),new THREE.MeshPhysicalMaterial({color:0x17303b,roughness:.12,metalness:.45,transparent:true,opacity:.88,clearcoat:1}));storefront.position.set(0,1.35,d/2+.1);group.add(storefront);
+ const awning=new THREE.Mesh(new THREE.BoxGeometry(w*.82,.16,1.1),mat([0x9a4336,0x345d72,0x9b8b66][idx%3],.7));awning.position.set(0,2.7,d/2+.55);group.add(awning);
+ group.position.set(x,0,z);scene.add(group);buildingCollision.push({x,z,r:Math.max(w,d)*.56});
+}
 for(let gx=-3;gx<=3;gx++)for(let gz=-3;gz<=3;gz++){if(gx===0&&gz===0)continue;const cx=gx*105,cz=gz*105;for(let n=0;n<4;n++){const x=cx+(n%2?1:-1)*(21+rand()*14),z=cz+(n<2?-1:1)*(21+rand()*14);building(x,z,17+rand()*13,17+rand()*13,13+rand()*65)}}
 function tree(x,z,s=1){const trunk=new THREE.Mesh(new THREE.CylinderGeometry(.16*s,.27*s,2.8*s,9),mat(0x584333));trunk.position.set(x,1.4*s,z);trunk.castShadow=true;scene.add(trunk);for(let i=0;i<3;i++){const crown=new THREE.Mesh(new THREE.IcosahedronGeometry((1.45-i*.16)*s,2),mat([0x385b45,0x466c4e,0x587a52][i],1));crown.position.set(x+(i-1)*.25*s,(3.1+i*.7)*s,z);crown.castShadow=true;scene.add(crown)}}
 for(let x=-330;x<=330;x+=35)for(const z of [-27,27])tree(x,z,.85);for(let z=-330;z<=330;z+=35)for(const x of [-27,27])tree(x,z,.85);
 function lamp(x,z){const pole=new THREE.Mesh(new THREE.CylinderGeometry(.08,.13,6,8),chrome);pole.position.set(x,3,z);scene.add(pole);const arm=new THREE.Mesh(new THREE.BoxGeometry(1.5,.1,.1),chrome);arm.position.set(x+.65,5.8,z);scene.add(arm);const bulb=new THREE.Mesh(new THREE.BoxGeometry(.5,.13,.35),new THREE.MeshStandardMaterial({color:0xffe5b3,emissive:0xffd18a,emissiveIntensity:.6}));bulb.position.set(x+1.3,5.72,z);scene.add(bulb)}
 for(let x=-300;x<=300;x+=70){lamp(x,-20);lamp(x,20)}
-// Character controller. Replaceable with a rigged GLB character in the asset pass.
-const player=new THREE.Group();scene.add(player);const skin=mat(0xb98262),shirt=mat(0x202b36),pants=mat(0x25282b),shoe=mat(0x111315);
-const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.34,.7,6,12),shirt);torso.position.y=1.42;torso.castShadow=true;player.add(torso);
-const head=new THREE.Mesh(new THREE.SphereGeometry(.235,20,16),skin);head.position.y=2.16;head.castShadow=true;player.add(head);
-const legs=[];for(const x of [-.15,.15]){const l=new THREE.Mesh(new THREE.CapsuleGeometry(.115,.62,4,8),pants);l.position.set(x,.64,0);l.castShadow=true;player.add(l);legs.push(l);const f=new THREE.Mesh(new THREE.BoxGeometry(.22,.13,.38),shoe);f.position.set(x,.17,-.06);player.add(f)}
-for(const x of [-.43,.43]){const arm=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.58,4,8),shirt);arm.position.set(x,1.38,0);arm.rotation.z=-x*.5;player.add(arm)}
+// Articulated third-person character with animated limbs and layered clothing.
+const player=new THREE.Group();scene.add(player);
+const skin=mat(0x9b684d,.78),shirt=mat(0x202b36,.88),pants=mat(0x25282b,.9),shoe=mat(0x111315,.65),hair=mat(0x171719,.9);
+const torso=new THREE.Mesh(new THREE.CapsuleGeometry(.34,.7,8,16),shirt);torso.position.y=1.42;torso.castShadow=true;player.add(torso);
+const pelvis=new THREE.Mesh(new THREE.BoxGeometry(.5,.28,.3),pants);pelvis.position.y=.91;player.add(pelvis);
+const neck=new THREE.Mesh(new THREE.CylinderGeometry(.095,.12,.18,12),skin);neck.position.y=1.91;player.add(neck);
+const head=new THREE.Mesh(new THREE.SphereGeometry(.235,24,20),skin);head.position.y=2.16;head.castShadow=true;player.add(head);
+const hairCap=new THREE.Mesh(new THREE.SphereGeometry(.239,24,12,0,Math.PI*2,0,Math.PI*.52),hair);hairCap.position.y=2.19;player.add(hairCap);
+const nose=new THREE.Mesh(new THREE.BoxGeometry(.055,.08,.09),skin);nose.position.set(0,2.13,-.22);player.add(nose);
+const legs=[],arms=[];
+for(const side of [-1,1]){
+ const leg=new THREE.Group();leg.position.set(side*.15,.91,0);player.add(leg);
+ const upper=new THREE.Mesh(new THREE.CapsuleGeometry(.115,.38,6,10),pants);upper.position.y=-.24;upper.castShadow=true;leg.add(upper);
+ const knee=new THREE.Mesh(new THREE.SphereGeometry(.105,12,10),pants);knee.position.y=-.47;leg.add(knee);
+ const lower=new THREE.Mesh(new THREE.CapsuleGeometry(.09,.36,6,10),pants);lower.position.y=-.68;leg.add(lower);
+ const foot=new THREE.Mesh(new THREE.BoxGeometry(.23,.14,.4),shoe);foot.position.set(0,-.9,-.09);leg.add(foot);legs.push(leg);
+ const arm=new THREE.Group();arm.position.set(side*.4,1.7,0);arm.rotation.z=-side*.12;player.add(arm);
+ const sleeve=new THREE.Mesh(new THREE.CapsuleGeometry(.105,.38,6,10),shirt);sleeve.position.y=-.25;arm.add(sleeve);
+ const forearm=new THREE.Mesh(new THREE.CapsuleGeometry(.075,.35,6,10),skin);forearm.position.set(0,-.58,0);arm.add(forearm);
+ const hand=new THREE.Mesh(new THREE.SphereGeometry(.085,12,10),skin);hand.position.y=-.8;arm.add(hand);arms.push(arm);
+}
 // Detailed game-ready placeholder coupe; asset loader pass will replace this with licensed GLB.
 function makeCar(color=0x1d526e){const car=new THREE.Group(),paint=new THREE.MeshPhysicalMaterial({color,metalness:.78,roughness:.23,clearcoat:1,clearcoatRoughness:.12}),glass=new THREE.MeshPhysicalMaterial({color:0x142b3a,roughness:.14,metalness:.48,clearcoat:1,transparent:true,opacity:.9});
 const body=new THREE.Mesh(new THREE.BoxGeometry(2.05,.48,4.5),paint);body.position.y=.68;body.castShadow=true;car.add(body);
