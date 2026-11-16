@@ -148,10 +148,52 @@ new GLTFLoader().load(alternateCarUrl,(gltf)=>{
 },undefined,(e)=>console.warn('Alternate car unavailable',e));
 
 const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,missionActive=false,missionTime=60,missionProgress=0,saveClock=0;
+try{const saved=JSON.parse(localStorage.getItem('metro-city-save')||'null');if(saved){cash=Math.max(0,Number(saved.cash)||2500);if(saved.position)player.position.set(saved.position[0]||0,0,saved.position[1]||0);if(saved.car)mainCar.position.set(saved.car[0]||7,0,saved.car[1]||3);document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US')}}catch(e){console.warn('Save data unavailable',e)}
+
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function resolveBuildingCollision(position,radius){for(const b of buildingCollision){const dx=position.x-b.x,dz=position.z-b.z,min=b.r+radius,d2=dx*dx+dz*dz;if(d2<min*min){const d=Math.sqrt(d2)||.001;position.x=b.x+dx/d*min;position.z=b.z+dz/d*min}}}
 function vehicleBlocked(car){for(const other of [mainCar,...parked,...traffic]){if(other===car||!other.visible)continue;const dx=car.position.x-other.position.x,dz=car.position.z-other.position.z;if(dx*dx+dz*dz<3.7*3.7)return true}return false}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2200)}
+let networkPeer=null,networkConnection=null,remotePlayer=null,remoteCar=null,networkSendClock=0;
+function networkStatus(message){document.querySelector('#network-status').textContent=message}
+function ensureRemote(){if(remotePlayer)return;remotePlayer=player.clone(true);remotePlayer.visible=false;scene.add(remotePlayer);remoteCar=makeCar(0x9a3540);remoteCar.visible=false;scene.add(remoteCar)}
+function acceptNetworkConnection(connection){
+ if(networkConnection&&networkConnection.open)networkConnection.close();
+ networkConnection=connection;ensureRemote();
+ connection.on('open',()=>networkStatus('Connected · '+connection.peer));
+ connection.on('data',data=>{
+  if(!data||!Array.isArray(data.position))return;
+  const target=data.mode==='drive'?remoteCar:remotePlayer,other=data.mode==='drive'?remotePlayer:remoteCar;
+  target.visible=true;other.visible=false;
+  target.position.set(Number(data.position[0])||0,0,Number(data.position[1])||0);
+  target.rotation.y=Number(data.rotation)||0;
+ });
+ connection.on('close',()=>{networkStatus('Peer disconnected');if(remotePlayer)remotePlayer.visible=false;if(remoteCar)remoteCar.visible=false});
+ connection.on('error',e=>networkStatus('Connection error: '+e.type));
+}
+async function startMultiplayer(role){
+ const codeInput=document.querySelector('#room-code');let code=codeInput.value.replace(/\D/g,'').slice(0,6);
+ if(role==='host'&&!code){code=String(Math.floor(100000+Math.random()*900000));codeInput.value=code}
+ if(code.length!==6){networkStatus('Enter a 6-digit room code');return}
+ try{
+  networkStatus('Connecting to room service…');
+  if(networkPeer){networkPeer.destroy();networkPeer=null;networkConnection=null}
+  const module=await import('https://esm.sh/peerjs@1.5.5?bundle');const Peer=module.default;
+  if(role==='host'){
+   networkPeer=new Peer('metrocity-'+code,{debug:1});
+   networkPeer.on('open',()=>networkStatus('Room '+code+' · Waiting for player'));
+   networkPeer.on('connection',acceptNetworkConnection);
+  }else{
+   networkPeer=new Peer(undefined,{debug:1});
+   networkPeer.on('open',()=>{networkStatus('Joining room '+code+'…');acceptNetworkConnection(networkPeer.connect('metrocity-'+code,{reliable:true}))});
+  }
+  networkPeer.on('error',e=>networkStatus('Network: '+e.type));
+ }catch(e){console.error(e);networkStatus('Multiplayer service unavailable')}
+}
+document.querySelector('#network-toggle').addEventListener('click',()=>document.querySelector('#network-panel').classList.toggle('open'));
+document.querySelector('#host-room').addEventListener('click',()=>startMultiplayer('host'));
+document.querySelector('#join-room').addEventListener('click',()=>startMultiplayer('join'));
+
 function drawMinimap(){
  const ctx=mapCtx,w=mapCanvas.width,h=mapCanvas.height,cx=w/2,cy=h/2,scale=.62;
  ctx.clearRect(0,0,w,h);ctx.fillStyle='#101d25';ctx.fillRect(0,0,w,h);
@@ -194,7 +236,8 @@ if(hit){activeCar.position.x=oldX;activeCar.position.z=oldZ;state.speed*=-.16;to
 activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);
 activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
 const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)}
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z]}))}catch(e){}}}
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z]}))}catch(e){}}
+networkSendClock+=dt;if(networkConnection&&networkConnection.open&&networkSendClock>.1){networkSendClock=0;const p=state.mode==='drive'?activeCar.position:player.position;try{networkConnection.send({mode:state.mode,position:[p.x,p.z],rotation:state.mode==='drive'?activeCar.rotation.y:player.rotation.y,speed:state.speed})}catch(e){networkStatus('Sync interrupted')}}}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
 setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
