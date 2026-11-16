@@ -1,4 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
+import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
 
 const canvas=document.querySelector('#world'),hud=document.querySelector('#hud'),loading=document.querySelector('#loading');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91aebe);scene.fog=new THREE.FogExp2(0x91aebe,.00165);
@@ -45,6 +46,41 @@ car.userData.wheels=wheels;return car}
 const mainCar=makeCar();mainCar.position.set(7,0,3);scene.add(mainCar);
 const parked=[];for(let i=0;i<6;i++){const c=makeCar([0x9c252b,0xc5c8c8,0x202326,0x9c783f,0x315d49,0xeeeeea][i]);c.position.set(-14+(i%2)*5,0,-42-Math.floor(i/2)*12);c.rotation.y=Math.PI;scene.add(c);parked.push(c)}
 const traffic=[];for(let i=0;i<8;i++){const c=makeCar([0xeeeeea,0x777f85,0x872c2c,0x253b50][i%4]);c.scale.setScalar(.8);c.position.set(-360+i*90,0,10+(i%2)*9);c.userData.trafficSpeed=5+(i%4)*2;scene.add(c);traffic.push(c)}
+// Load a verified CC0 vehicle model and replace the temporary geometry cars.
+const carAssetUrl='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb';
+const assetLoader=new GLTFLoader();
+let carAssetReady=false;
+const vehicleGroups=[mainCar,...parked,...traffic];
+assetLoader.load(carAssetUrl,(gltf)=>{
+  const source=gltf.scene;
+  const bounds=new THREE.Box3().setFromObject(source);
+  const size=bounds.getSize(new THREE.Vector3());
+  const center=bounds.getCenter(new THREE.Vector3());
+  const scale=4.5/Math.max(size.x,size.z);
+  source.scale.setScalar(scale);
+  source.position.sub(center.multiplyScalar(scale));
+  source.rotation.y=Math.PI/2; // Source vehicle faces +X; game vehicles face -Z.
+  source.position.y+=0.05;
+  source.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material=o.material.clone();}}});
+  for(const group of vehicleGroups){
+    group.clear();
+    const instance=source.clone(true);
+    group.add(instance);
+    group.userData.wheels=[];
+    instance.traverse(o=>{if(o.isMesh&&/wheel|tire/i.test(o.name))group.userData.wheels.push(o)});
+  }
+  carAssetReady=true;
+  toast('CC0 Spectral GT loaded · Find your car');
+  document.querySelector('#load-progress').style.width='100%';
+  loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);
+},(event)=>{
+  if(event.total)document.querySelector('#load-progress').style.width=Math.round(event.loaded/event.total*90)+'%';
+},(error)=>{
+  console.warn('Vehicle asset failed; keeping procedural fallback.',error);
+  toast('Vehicle asset unavailable · Offline fallback active');
+  loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);
+});
+
 const state={mode:'walk',speed:0,heading:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2200)}
@@ -59,6 +95,6 @@ const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.m
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);renderer.render(scene,camera)}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
-setTimeout(()=>{loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);toast('Welcome to Metro City · Find a car')},1350);
+setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
 setInterval(()=>document.querySelector('#clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}),1000);
 requestAnimationFrame(frame);
