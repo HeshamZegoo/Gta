@@ -152,13 +152,13 @@ function installVehicleModel(gltf,asset){
  source.position.y+=.05;
  source.traverse(o=>{
   if(o.isMesh){
-   o.castShadow=true;o.receiveShadow=true;
+   o.castShadow=!isMobile;o.receiveShadow=!isMobile;
    if(Array.isArray(o.material))o.material=o.material.map(m=>m.clone());
    else if(o.material)o.material=o.material.clone();
    if(o.material){o.material.envMapIntensity=1.15;if(o.material.roughness!==undefined)o.material.roughness=Math.min(.82,Math.max(.16,o.material.roughness))}
   }
  });
- for(const group of asset.targets){
+ for(const group of (isMobile?[mainCar]:asset.targets)){
   if(!group)continue;
   group.clear();
   const instance=source.clone(true);
@@ -172,13 +172,14 @@ function installVehicleModel(gltf,asset){
 }
 const assetLoader=new GLTFLoader();
 assetLoader.setCrossOrigin('anonymous');
-for(const asset of vehicleAssets){
+const assetsToLoad=isMobile?vehicleAssets.slice(0,1):vehicleAssets;
+for(const asset of assetsToLoad){
  assetLoader.load(asset.url,gltf=>installVehicleModel(gltf,asset),event=>{
   if(event.total&&!carAssetReady)document.querySelector('#load-progress').style.width=Math.min(88,Math.round(event.loaded/event.total*25))+'%';
  },error=>{
   console.warn(asset.name+' unavailable; keeping detailed local fallback vehicles.',error);
   loadedVehicleAssets++;
-  if(!carAssetReady&&loadedVehicleAssets===vehicleAssets.length){loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850)}
+  if(!carAssetReady&&loadedVehicleAssets===assetsToLoad.length){loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850)}
  });
 }
 
@@ -286,7 +287,7 @@ if(state.mode==='drive'&&cameraMode==='cockpit'){
  const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);
  camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)
 }}
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);minimapClock+=dt;if(minimapClock>(isMobile?.12:.05)){drawMinimap();minimapClock=0}renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z],vehicles:[mainCar,...parked].map(c=>[c.position.x,c.position.z]),activeCarIndex:[mainCar,...parked].indexOf(activeCar)}))}catch(e){}}
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);minimapClock+=dt;if(minimapClock>(isMobile ? .12 : .05)){drawMinimap();minimapClock=0}renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z],vehicles:[mainCar,...parked].map(c=>[c.position.x,c.position.z]),activeCarIndex:[mainCar,...parked].indexOf(activeCar)}))}catch(e){}}
 networkSendClock+=dt;if(networkConnection&&networkConnection.open&&networkSendClock>.1){networkSendClock=0;const p=state.mode==='drive'?activeCar.position:player.position;try{networkConnection.send({mode:state.mode,position:[p.x,p.z],rotation:state.mode==='drive'?activeCar.rotation.y:player.rotation.y,speed:state.speed})}catch(e){networkStatus('Sync interrupted')}}}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,isMobile?1:innerWidth>1400?1.5:1.25))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
