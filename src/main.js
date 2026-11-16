@@ -100,7 +100,9 @@ const checkpoint=new THREE.Group(),checkpointRing=new THREE.Mesh(new THREE.Torus
 checkpointRing.rotation.x=Math.PI/2;checkpointRing.position.y=2.4;checkpoint.add(checkpointRing);
 const checkpointBeam=new THREE.Mesh(new THREE.CylinderGeometry(.08,.5,7,12,1,true),new THREE.MeshBasicMaterial({color:0x51cfff,transparent:true,opacity:.14,side:THREE.DoubleSide}));
 checkpointBeam.position.y=3.5;checkpoint.add(checkpointBeam);scene.add(checkpoint);
-function setCheckpoint(){checkpoint.position.copy(checkpointTargets[checkpointIndex]);document.querySelector('#mission-sub').textContent='Drive through the blue marker · Reward $500';}
+function setCheckpoint(){checkpoint.position.copy(checkpointTargets[checkpointIndex]);document.querySelector('#mission-sub').textContent=missionActive?'Time trial · '+missionProgress+'/4 checkpoints':'Drive through the blue marker · Reward $500';}
+function finishMission(success){missionActive=false;document.querySelector('#mission-start').textContent='START MISSION';if(success){cash+=3000;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');toast('Time trial complete · +$3,000')}else toast('Time trial failed · Try again');setCheckpoint()}
+document.querySelector('#mission-start').addEventListener('click',()=>{missionActive=true;missionTime=60;missionProgress=0;checkpointIndex=0;setCheckpoint();document.querySelector('#mission-start').textContent='MISSION ACTIVE';toast('Time trial started · 60 seconds')});
 setCheckpoint();
 // Load a verified CC0 vehicle model and replace the temporary geometry cars.
 const carAssetUrl='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb';
@@ -136,8 +138,16 @@ assetLoader.load(carAssetUrl,(gltf)=>{
   toast('Vehicle asset unavailable · Offline fallback active');
   loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);
 });
+const alternateCarUrl='https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb';
+new GLTFLoader().load(alternateCarUrl,(gltf)=>{
+ const model=gltf.scene;const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
+ const scale=4.6/Math.max(size.x,size.z);model.scale.setScalar(scale);model.position.sub(center.multiplyScalar(scale));
+ model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
+ for(const i of [1,3,5]){const target=parked[i];const instance=model.clone(true);target.clear();target.add(instance);target.userData.wheels=[]}
+ toast('Second CC0 vehicle model loaded');
+},undefined,(e)=>console.warn('Alternate car unavailable',e));
 
-const state={mode:'walk',speed:0,heading:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0;
+const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,missionActive=false,missionTime=60,missionProgress=0,saveClock=0;
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function resolveBuildingCollision(position,radius){for(const b of buildingCollision){const dx=position.x-b.x,dz=position.z-b.z,min=b.r+radius,d2=dx*dx+dz*dz;if(d2<min*min){const d=Math.sqrt(d2)||.001;position.x=b.x+dx/d*min;position.z=b.z+dz/d*min}}}
 function vehicleBlocked(car){for(const other of [mainCar,...parked,...traffic]){if(other===car||!other.visible)continue;const dx=car.position.x-other.position.x,dz=car.position.z-other.position.z;if(dx*dx+dz*dz<3.7*3.7)return true}return false}
@@ -163,14 +173,28 @@ addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit()}
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
 function update(dt){elapsed+=dt;for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
+if(missionActive){missionTime-=dt;if(missionTime<=0)finishMission(false)}
 if(state.mode==='drive'&&activeCar.position.distanceTo(checkpoint.position)<6){
- cash+=500;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');
- checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;setCheckpoint();toast('Checkpoint complete · +$500');
+ if(missionActive){missionProgress++;checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;if(missionProgress>=4)finishMission(true);else{setCheckpoint();toast('Checkpoint '+missionProgress+'/4 · '+Math.ceil(missionTime)+'s left')}}
+ else{cash+=500;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;setCheckpoint();toast('Checkpoint complete · +$500')}
 }
-if(state.mode==='walk'){const f=(keys.KeyW||keys.ArrowUp||touch.forward?1:0)-(keys.KeyS||keys.ArrowDown||touch.back?1:0),s=(keys.KeyD||keys.ArrowRight||touch.right?1:0)-(keys.KeyA||keys.ArrowLeft||touch.left?1:0);if(f||s){const angle=Math.atan2(s,-f);player.rotation.y=THREE.MathUtils.damp(player.rotation.y,angle,9,dt);const v=(keys.ShiftLeft||keys.ShiftRight?11:5.5);player.position.x+=Math.sin(angle)*v*dt;player.position.z-=Math.cos(angle)*v*dt;legs.forEach((l,i)=>l.rotation.x=Math.sin(elapsed*10+i*Math.PI)*.48)}else legs.forEach(l=>l.rotation.x=THREE.MathUtils.damp(l.rotation.x,0,8,dt));resolveBuildingCollision(player.position,.9);for(const c of [mainCar,...parked]){const dx=player.position.x-c.position.x,dz=player.position.z-c.position.z,d=Math.hypot(dx,dz);if(d<2.5){player.position.x=c.position.x+(dx/(d||.001))*2.5;player.position.z=c.position.z+(dz/(d||.001))*2.5}}player.position.x=clamp(player.position.x,-430,430);player.position.z=clamp(player.position.z,-430,430)}
-else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,left=keys.KeyA||keys.ArrowLeft||touch.left,right=keys.KeyD||keys.ArrowRight||touch.right;state.speed=THREE.MathUtils.damp(state.speed,gas?31:brake?-10:0,gas||brake?1.8:1.1,dt);if(Math.abs(state.speed)>.4)activeCar.rotation.y+=((left?1:0)-(right?1:0))*dt*(.85+Math.abs(state.speed)*.025)*Math.sign(state.speed);activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);resolveBuildingCollision(activeCar.position,2.25);if(vehicleBlocked(activeCar)){state.speed=0;toast('Collision · Vehicle stopped')}activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
+if(state.mode==='walk'){const f=(keys.KeyW||keys.ArrowUp||touch.forward?1:0)-(keys.KeyS||keys.ArrowDown||touch.back?1:0),s=(keys.KeyD||keys.ArrowRight||touch.right?1:0)-(keys.KeyA||keys.ArrowLeft||touch.left?1:0);if(f||s){const angle=Math.atan2(s,-f);player.rotation.y=THREE.MathUtils.damp(player.rotation.y,angle,9,dt);const v=(keys.ShiftLeft||keys.ShiftRight?11:5.5);player.position.x+=Math.sin(angle)*v*dt;player.position.z-=Math.cos(angle)*v*dt;legs.forEach((l,i)=>l.rotation.x=Math.sin(elapsed*10+i*Math.PI)*.48);arms.forEach((a,i)=>a.rotation.x=Math.sin(elapsed*10+i*Math.PI+Math.PI)*.32)}else legs.forEach(l=>l.rotation.x=THREE.MathUtils.damp(l.rotation.x,0,8,dt));resolveBuildingCollision(player.position,.9);for(const c of [mainCar,...parked]){const dx=player.position.x-c.position.x,dz=player.position.z-c.position.z,d=Math.hypot(dx,dz);if(d<2.5){player.position.x=c.position.x+(dx/(d||.001))*2.5;player.position.z=c.position.z+(dz/(d||.001))*2.5}}player.position.x=clamp(player.position.x,-430,430);player.position.z=clamp(player.position.z,-430,430)}
+else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,left=keys.KeyA||keys.ArrowLeft||touch.left||keys.ArrowLeft,right=keys.KeyD||keys.ArrowRight||touch.right;
+const steer=(left?1:0)-(right?1:0),oldX=activeCar.position.x,oldZ=activeCar.position.z;
+if(gas)state.speed=Math.min(38,state.speed+19*dt);
+else if(brake)state.speed=state.speed>0?Math.max(0,state.speed-28*dt):Math.max(-9,state.speed-8*dt);
+else state.speed=THREE.MathUtils.damp(state.speed,0,1.15,dt);
+state.steering=THREE.MathUtils.damp(state.steering,steer,5.5,dt);
+if(Math.abs(state.speed)>.35)activeCar.rotation.y+=state.steering*dt*(.22+Math.min(1,Math.abs(state.speed)/18)*.72)*Math.sign(state.speed);
+activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;
+activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;
+let hit=buildingCollision.some(b=>Math.hypot(activeCar.position.x-b.x,activeCar.position.z-b.z)<b.r+1.5);
+if(!hit)hit=vehicleBlocked(activeCar);
+if(hit){activeCar.position.x=oldX;activeCar.position.z=oldZ;state.speed*=-.16;toast('Impact · Vehicle damaged')}
+activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);
+activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
 const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)}
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera)}
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z]}))}catch(e){}}}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
 setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
