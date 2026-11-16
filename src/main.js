@@ -1,5 +1,6 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/environments/RoomEnvironment.js';
 
 const canvas=document.querySelector('#world'),hud=document.querySelector('#hud'),loading=document.querySelector('#loading');
 const mapCanvas=document.querySelector('#minimap'),mapCtx=mapCanvas.getContext('2d');
@@ -8,9 +9,11 @@ const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,1500);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
 const pixelCap=innerWidth>1500?2:1.5;renderer.setPixelRatio(Math.min(devicePixelRatio,pixelCap));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
+renderer.useLegacyLights=false;renderer.shadowMap.autoUpdate=true;renderer.info.autoReset=true;
+const pmremGenerator=new THREE.PMREMGenerator(renderer);scene.environment=pmremGenerator.fromScene(new RoomEnvironment(),.04).texture;pmremGenerator.dispose();
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const hemi=new THREE.HemisphereLight(0xd9edff,0x53606a,2.15);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffdfbd,3.2);sun.position.set(-160,230,100);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=-180;sun.shadow.camera.right=180;sun.shadow.camera.top=180;sun.shadow.camera.bottom=-180;sun.shadow.bias=-.0002;scene.add(sun);
+const sun=new THREE.DirectionalLight(0xffdfbd,3.2);sun.position.set(-160,230,100);sun.castShadow=true;sun.shadow.mapSize.set(innerWidth>900?4096:2048,innerWidth>900?4096:2048);sun.shadow.camera.left=-85;sun.shadow.camera.right=85;sun.shadow.camera.top=85;sun.shadow.camera.bottom=-85;sun.shadow.camera.near=1;sun.shadow.camera.far=360;sun.shadow.bias=-.0002;scene.add(sun);
 const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
 const asphalt=mat(0x30383d,.96),curb=mat(0xaaa9a0),mark=mat(0xe4dfce),rubber=mat(0x101214),chrome=mat(0xaab8c1,.22,.85),sidewalkMat=mat(0x777b78,.98);
 const asphaltCanvas=document.createElement('canvas');asphaltCanvas.width=asphaltCanvas.height=512;const asphaltCtx=asphaltCanvas.getContext('2d');asphaltCtx.fillStyle='#30383d';asphaltCtx.fillRect(0,0,512,512);for(let i=0;i<26000;i++){const n=75+Math.floor(Math.random()*95);asphaltCtx.fillStyle='rgba('+n+','+n+','+n+','+(Math.random()*.22)+')';asphaltCtx.fillRect(Math.random()*512,Math.random()*512,1+Math.random()*2,1+Math.random()*2)}const asphaltTexture=new THREE.CanvasTexture(asphaltCanvas);asphaltTexture.wrapS=asphaltTexture.wrapT=THREE.RepeatWrapping;asphaltTexture.repeat.set(8,8);asphaltTexture.colorSpace=THREE.SRGBColorSpace;asphaltTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());asphalt.map=asphaltTexture;asphalt.bumpMap=asphaltTexture;asphalt.bumpScale=.035;
@@ -130,48 +133,60 @@ function setCheckpoint(){checkpoint.position.copy(checkpointTargets[checkpointIn
 function finishMission(success){missionActive=false;document.querySelector('#mission-start').textContent='START MISSION';if(success){cash+=3000;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');toast('Time trial complete · +$3,000')}else toast('Time trial failed · Try again');setCheckpoint()}
 document.querySelector('#mission-start').addEventListener('click',()=>{missionActive=true;missionTime=60;missionProgress=0;checkpointIndex=0;setCheckpoint();document.querySelector('#mission-start').textContent='MISSION ACTIVE';toast('Time trial started · 60 seconds')});
 setCheckpoint();
-// Load a verified CC0 vehicle model and replace the temporary geometry cars.
-const carAssetUrl='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb';
-const assetLoader=new GLTFLoader();
-let carAssetReady=false;
-const vehicleGroups=[mainCar,...parked,...traffic];
-assetLoader.load(carAssetUrl,(gltf)=>{
-  const source=gltf.scene;
-  const bounds=new THREE.Box3().setFromObject(source);
-  const size=bounds.getSize(new THREE.Vector3());
-  const center=bounds.getCenter(new THREE.Vector3());
-  const scale=4.5/Math.max(size.x,size.z);
-  source.scale.setScalar(scale);
-  source.position.sub(center.multiplyScalar(scale));
-  source.rotation.y=Math.PI/2; // Source vehicle faces +X; game vehicles face -Z.
-  source.position.y+=0.05;
-  source.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;if(o.material){o.material=o.material.clone();}}});
-  for(const group of vehicleGroups){
-    group.clear();
-    const instance=source.clone(true);
-    group.add(instance);
-    group.userData.wheels=[];
-    instance.traverse(o=>{if(o.isMesh&&/wheel|tire/i.test(o.name))group.userData.wheels.push(o)});
+// Real, textured CC0 vehicle models. Each asset is loaded once, then cloned into the world.
+const vehicleAssets=[
+ {name:'Spectral GT RS',url:'https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb',targets:[mainCar,parked[0],parked[3],traffic[0],traffic[3],traffic[6]]},
+ {name:'1990s JDM Coupe',url:'https://files.innerscene.com/library/generic-1990s-japanese-style-sports-coupe-ace64592/696200cf9cd0b540e6cd/generic-1990s-japanese-style-sports-coupe.glb',targets:[parked[1],parked[4],traffic[1],traffic[4],traffic[7]]},
+ {name:'Mid-engine Supercar',url:'https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb',targets:[parked[2],parked[5],traffic[2],traffic[5]]}
+];
+let carAssetReady=false,loadedVehicleAssets=0;
+function finishVehicleLoading(){
+ loadedVehicleAssets++;
+ if(!carAssetReady){carAssetReady=true;document.querySelector('#load-progress').style.width='100%';loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850)}
+}
+function installVehicleModel(gltf,asset){
+ const source=gltf.scene;
+ source.updateMatrixWorld(true);
+ const bounds=new THREE.Box3().setFromObject(source);
+ const size=bounds.getSize(new THREE.Vector3());
+ const center=bounds.getCenter(new THREE.Vector3());
+ const length=Math.max(size.x,size.z)||4.5;
+ const scale=4.5/length;
+ source.scale.setScalar(scale);
+ source.position.sub(center.multiplyScalar(scale));
+ source.rotation.y=Math.PI/2;
+ source.position.y+=.05;
+ source.traverse(o=>{
+  if(o.isMesh){
+   o.castShadow=true;o.receiveShadow=true;
+   if(Array.isArray(o.material))o.material=o.material.map(m=>m.clone());
+   else if(o.material)o.material=o.material.clone();
+   if(o.material){o.material.envMapIntensity=1.15;if(o.material.roughness!==undefined)o.material.roughness=Math.min(.82,Math.max(.16,o.material.roughness))}
   }
-  carAssetReady=true;
-  toast('CC0 Spectral GT loaded · Find your car');
-  document.querySelector('#load-progress').style.width='100%';
-  loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);
-},(event)=>{
-  if(event.total)document.querySelector('#load-progress').style.width=Math.round(event.loaded/event.total*90)+'%';
-},(error)=>{
-  console.warn('Vehicle asset failed; keeping procedural fallback.',error);
-  toast('Vehicle asset unavailable · Offline fallback active');
-  loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);
-});
-const alternateCarUrl='https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb';
-new GLTFLoader().load(alternateCarUrl,(gltf)=>{
- const model=gltf.scene;const bounds=new THREE.Box3().setFromObject(model),size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
- const scale=4.6/Math.max(size.x,size.z);model.scale.setScalar(scale);model.position.sub(center.multiplyScalar(scale));
- model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true}});
- for(const i of [1,3,5]){const target=parked[i];const instance=model.clone(true);target.clear();target.add(instance);target.userData.wheels=[]}
- toast('Second CC0 vehicle model loaded');
-},undefined,(e)=>console.warn('Alternate car unavailable',e));
+ });
+ for(const group of asset.targets){
+  if(!group)continue;
+  group.clear();
+  const instance=source.clone(true);
+  group.add(instance);
+  group.userData.wheels=[];
+  group.userData.vehicleModel=asset.name;
+  instance.traverse(o=>{if(o.isMesh&&/(wheel|tire|tyre)/i.test(o.name))group.userData.wheels.push(o)});
+ }
+ toast(asset.name+' loaded');
+ finishVehicleLoading();
+}
+const assetLoader=new GLTFLoader();
+assetLoader.setCrossOrigin('anonymous');
+for(const asset of vehicleAssets){
+ assetLoader.load(asset.url,gltf=>installVehicleModel(gltf,asset),event=>{
+  if(event.total&&!carAssetReady)document.querySelector('#load-progress').style.width=Math.min(88,Math.round(event.loaded/event.total*25))+'%';
+ },error=>{
+  console.warn(asset.name+' unavailable; keeping detailed local fallback vehicles.',error);
+  loadedVehicleAssets++;
+  if(!carAssetReady&&loadedVehicleAssets===vehicleAssets.length){loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850)}
+ });
+}
 
 const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,saveClock=0;
 try{const saved=JSON.parse(localStorage.getItem('metro-city-save')||'null');if(saved){cash=Math.max(0,Number(saved.cash)||2500);if(saved.position)player.position.set(saved.position[0]||0,0,saved.position[1]||0);if(saved.car)mainCar.position.set(saved.car[0]||7,0,saved.car[1]||3);if(Array.isArray(saved.vehicles))saved.vehicles.forEach((p,i)=>{const car=[mainCar,...parked][i];if(car&&Array.isArray(p))car.position.set(Number(p[0])||0,0,Number(p[1])||0)});if(Number.isInteger(saved.activeCarIndex)&&saved.activeCarIndex>=0&&saved.activeCarIndex<1+parked.length)activeCar=[mainCar,...parked][saved.activeCarIndex];document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US')}}catch(e){console.warn('Save data unavailable',e)}
@@ -267,6 +282,7 @@ if(hit){activeCar.position.x=oldX;activeCar.position.z=oldZ;state.speed*=-.16;to
 activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);
 activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
 const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;
+sun.position.set(target.x-95,target.y+155,target.z+75);sun.target.position.set(target.x,target.y,target.z);if(!sun.target.parent)scene.add(sun.target);sun.shadow.camera.updateProjectionMatrix();
 if(state.mode==='drive'&&cameraMode==='cockpit'){
  const offset=new THREE.Vector3(-.48,1.28,-.18).applyAxisAngle(new THREE.Vector3(0,1,0),yaw);
  camera.position.lerp(new THREE.Vector3(target.x+offset.x,target.y+offset.y,target.z+offset.z),1-Math.exp(-9*dt));
