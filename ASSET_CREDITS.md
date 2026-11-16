@@ -23,6 +23,20 @@ All vehicle models listed below are generic/unbranded models. Their stated licen
 - License: CC0 1.0 (public domain dedication)
 - Runtime URL: https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb
 
+## Sedan car
+- Source: Innerscene 3D Parts Library
+- Model page: https://www.innerscene.com/tools/library/3d-parts/sedan-car-42109739
+- File: `sedan-original.glb` (627 KB)
+- License: CC0 1.0 (public domain dedication)
+- Runtime URL: https://files.innerscene.com/library/sedan-car-42109739/75c64c1b3c8b03734314/sedan-original.glb
+
+## Generic compact SUV
+- Source: Innerscene 3D Parts Library
+- Model page: https://www.innerscene.com/tools/library/3d-parts/generic-compact-suv-9f157ee5
+- File: `generic-compact-suv.glb` (4.6 MB)
+- License: CC0 1.0 (public domain dedication)
+- Runtime URL: https://files.innerscene.com/library/generic-compact-suv-9f157ee5/fbafbd81b04c3d969f9c/generic-compact-suv.glb
+
 ## Environment lighting
 - Poly Haven HDRI: Urban Street 01 (1K)
 - Source: https://polyhaven.com/a/urban_street_01
