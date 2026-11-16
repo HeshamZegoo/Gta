@@ -30,16 +30,15 @@ Open `http://localhost:8080`.
 
 ## Vehicle assets and licensing
 
-The primary detailed vehicle is **Spectral GT RS**, authored by JaronKBragg7337 and released under **CC0 1.0 Universal**. The game loads the GLB at runtime from:
+The game loads three detailed generic vehicle models at runtime. Their sources, exact runtime URLs and license details are documented in [ASSET_CREDITS.md](./ASSET_CREDITS.md).
 
-`https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb`
-
-A second generic mid-engine supercar is loaded from Innerscene's CC0 model library. Both remote models are optional: if a download or host fails, the procedural fallback cars remain available. The game currently uses static vehicle meshes; model-specific wheel, steering, door and suspension animation is not fully integrated.
+All three remote models are optional: if a download or host fails, the detailed procedural fallback cars remain available. The game currently uses static vehicle meshes; model-specific wheel, steering, door and suspension animation is not fully integrated.
 
 ## Graphics and performance
 
-- Three.js WebGL rendering with ACES tone mapping, sRGB output, soft shadows, PBR materials and adaptive pixel ratio.
-- The renderer is not HDR10 output and does not provide native 4K rendering on mobile.
+- Three.js WebGL rendering with ACES tone mapping, sRGB output, PBR materials, PMREM studio fallback reflections, Poly Haven Urban Street 01 HDR environment reflections, locally-following directional shadows and adaptive pixel ratio (up to 2x on large desktop displays).
+- Three distinct unbranded CC0 GLB cars are distributed across player, parked and traffic vehicles: Spectral GT RS, a generic 1990s JDM coupe and a generic mid-engine supercar. The game keeps the procedural vehicle fallback if a remote asset cannot load.
+- HDR environment lighting improves physically based reflections, but the renderer is not HDR10 output and does not provide native 4K rendering on mobile.
 - NVIDIA DLSS is not a drop-in feature for this WebGL build and DLSS 5 is not integrated. A native PC engine build would be needed for that class of GPU feature.
 - City buildings and the player character are procedural assets, not photogrammetry or professionally rigged photorealistic assets. The city is a compact generated map, not a real-world-scale GTA map.
 - Driving remains arcade-style; there is no full tire, suspension, deformation or rigid-body simulation.
