@@ -2,6 +2,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.m
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
 
 const canvas=document.querySelector('#world'),hud=document.querySelector('#hud'),loading=document.querySelector('#loading');
+const mapCanvas=document.querySelector('#minimap'),mapCtx=mapCanvas.getContext('2d');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91aebe);scene.fog=new THREE.FogExp2(0x91aebe,.00165);
 const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,1500);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
@@ -87,6 +88,21 @@ const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 function resolveBuildingCollision(position,radius){for(const b of buildingCollision){const dx=position.x-b.x,dz=position.z-b.z,min=b.r+radius,d2=dx*dx+dz*dz;if(d2<min*min){const d=Math.sqrt(d2)||.001;position.x=b.x+dx/d*min;position.z=b.z+dz/d*min}}}
 function vehicleBlocked(car){for(const other of [mainCar,...parked,...traffic]){if(other===car||!other.visible)continue;const dx=car.position.x-other.position.x,dz=car.position.z-other.position.z;if(dx*dx+dz*dz<3.7*3.7)return true}return false}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2200)}
+function drawMinimap(){
+ const ctx=mapCtx,w=mapCanvas.width,h=mapCanvas.height,cx=w/2,cy=h/2,scale=.62;
+ ctx.clearRect(0,0,w,h);ctx.fillStyle='#101d25';ctx.fillRect(0,0,w,h);
+ const focus=state.mode==='drive'?activeCar.position:player.position;
+ ctx.save();ctx.translate(cx-focus.x*scale,cy-focus.z*scale);
+ ctx.strokeStyle='#65737a';ctx.lineWidth=13*scale;
+ for(let i=-5;i<=5;i++){const p=i*105;ctx.beginPath();ctx.moveTo(p,-650);ctx.lineTo(p,650);ctx.stroke();ctx.beginPath();ctx.moveTo(-650,p);ctx.lineTo(650,p);ctx.stroke()}
+ ctx.strokeStyle='#e7d8a8';ctx.lineWidth=1.2*scale;ctx.setLineDash([8,9]);
+ for(let i=-5;i<=5;i++){const p=i*105;ctx.beginPath();ctx.moveTo(p,-650);ctx.lineTo(p,650);ctx.stroke();ctx.beginPath();ctx.moveTo(-650,p);ctx.lineTo(650,p);ctx.stroke()}
+ ctx.setLineDash([]);
+ for(const car of [mainCar,...parked,...traffic]){ctx.fillStyle=car===activeCar&&state.mode==='drive'?'#8fe1ff':'#e8c27a';ctx.beginPath();ctx.arc(car.position.x*scale,car.position.z*scale,2.8,0,Math.PI*2);ctx.fill()}
+ ctx.restore();
+ const yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(-yaw);ctx.fillStyle='#9de3ff';ctx.strokeStyle='#07131b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(6,7);ctx.lineTo(0,4);ctx.lineTo(-6,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
+}
 function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c of [mainCar,...parked]){const d=player.position.distanceTo(c.position);if(d<dist){dist=d;found=c}}if(found){activeCar=found;state.mode='drive';player.visible=false;document.querySelector('#drive-pad').style.display='grid';document.querySelector('.move-pad').style.display='none';document.querySelector('.action-pad').style.display='none';document.querySelector('#speed').style.display='block';toast('Vehicle entered · Drive safe')}else toast('Walk closer to a parked car')}else{state.mode='walk';state.speed=0;player.visible=true;player.position.copy(activeCar.position).add(new THREE.Vector3(2,0,0));document.querySelector('#drive-pad').style.display='none';document.querySelector('.move-pad').style.display='block';document.querySelector('.action-pad').style.display='flex';document.querySelector('#speed').style.display='none';toast('You left the vehicle')}}
 document.querySelector('#enter').addEventListener('click',enterExit);document.querySelector('#run').addEventListener('pointerdown',()=>keys.ShiftLeft=true);for(const ev of ['pointerup','pointercancel'])document.querySelector('#run').addEventListener(ev,()=>keys.ShiftLeft=false);
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit()});addEventListener('keyup',e=>keys[e.code]=false);
@@ -95,7 +111,7 @@ function update(dt){elapsed+=dt;for(const t of traffic){t.position.x+=t.userData
 if(state.mode==='walk'){const f=(keys.KeyW||keys.ArrowUp||touch.forward?1:0)-(keys.KeyS||keys.ArrowDown||touch.back?1:0),s=(keys.KeyD||keys.ArrowRight||touch.right?1:0)-(keys.KeyA||keys.ArrowLeft||touch.left?1:0);if(f||s){const angle=Math.atan2(s,-f);player.rotation.y=THREE.MathUtils.damp(player.rotation.y,angle,9,dt);const v=(keys.ShiftLeft||keys.ShiftRight?11:5.5);player.position.x+=Math.sin(angle)*v*dt;player.position.z-=Math.cos(angle)*v*dt;legs.forEach((l,i)=>l.rotation.x=Math.sin(elapsed*10+i*Math.PI)*.48)}else legs.forEach(l=>l.rotation.x=THREE.MathUtils.damp(l.rotation.x,0,8,dt));resolveBuildingCollision(player.position,.9);for(const c of [mainCar,...parked]){const dx=player.position.x-c.position.x,dz=player.position.z-c.position.z,d=Math.hypot(dx,dz);if(d<2.5){player.position.x=c.position.x+(dx/(d||.001))*2.5;player.position.z=c.position.z+(dz/(d||.001))*2.5}}player.position.x=clamp(player.position.x,-430,430);player.position.z=clamp(player.position.z,-430,430)}
 else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,left=keys.KeyA||keys.ArrowLeft||touch.left,right=keys.KeyD||keys.ArrowRight||touch.right;state.speed=THREE.MathUtils.damp(state.speed,gas?31:brake?-10:0,gas||brake?1.8:1.1,dt);if(Math.abs(state.speed)>.4)activeCar.rotation.y+=((left?1:0)-(right?1:0))*dt*(.85+Math.abs(state.speed)*.025)*Math.sign(state.speed);activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);resolveBuildingCollision(activeCar.position,2.25);if(vehicleBlocked(activeCar)){state.speed=0;toast('Collision · Vehicle stopped')}activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
 const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)}
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);renderer.render(scene,camera)}
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera)}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
 setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
