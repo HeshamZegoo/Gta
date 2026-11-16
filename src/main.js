@@ -45,7 +45,7 @@ for(const x of [-.68,.68]){const headlight=new THREE.Mesh(new THREE.BoxGeometry(
 car.userData.wheels=wheels;return car}
 const mainCar=makeCar();mainCar.position.set(7,0,3);scene.add(mainCar);
 const parked=[];for(let i=0;i<6;i++){const c=makeCar([0x9c252b,0xc5c8c8,0x202326,0x9c783f,0x315d49,0xeeeeea][i]);c.position.set(-14+(i%2)*5,0,-42-Math.floor(i/2)*12);c.rotation.y=Math.PI;scene.add(c);parked.push(c)}
-const traffic=[];for(let i=0;i<8;i++){const c=makeCar([0xeeeeea,0x777f85,0x872c2c,0x253b50][i%4]);c.scale.setScalar(.8);c.position.set(-360+i*90,0,10+(i%2)*9);c.userData.trafficSpeed=5+(i%4)*2;scene.add(c);traffic.push(c)}
+const traffic=[];for(let i=0;i<8;i++){const c=makeCar([0xeeeeea,0x777f85,0x872c2c,0x253b50][i%4]);c.scale.setScalar(.8);c.rotation.y=-Math.PI/2;c.position.set(-360+i*90,0,10+(i%2)*9);c.userData.trafficSpeed=5+(i%4)*2;scene.add(c);traffic.push(c)}
 // Load a verified CC0 vehicle model and replace the temporary geometry cars.
 const carAssetUrl='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb';
 const assetLoader=new GLTFLoader();
