@@ -263,13 +263,14 @@ if(state.mode==='drive'&&activeCar.position.distanceTo(checkpoint.position)<6){
  else{cash+=500;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;setCheckpoint();toast('Checkpoint complete · +$500')}
 }
 if(state.mode==='walk'){const f=(keys.KeyW||keys.ArrowUp||touch.forward?1:0)-(keys.KeyS||keys.ArrowDown||touch.back?1:0),s=(keys.KeyD||keys.ArrowRight||touch.right?1:0)-(keys.KeyA||keys.ArrowLeft||touch.left?1:0);if(f||s){const angle=Math.atan2(s,-f);player.rotation.y=THREE.MathUtils.damp(player.rotation.y,angle,9,dt);const v=(keys.ShiftLeft||keys.ShiftRight?11:5.5);player.position.x+=Math.sin(angle)*v*dt;player.position.z-=Math.cos(angle)*v*dt;legs.forEach((l,i)=>l.rotation.x=Math.sin(elapsed*10+i*Math.PI)*.48);arms.forEach((a,i)=>a.rotation.x=Math.sin(elapsed*10+i*Math.PI+Math.PI)*.32)}else legs.forEach(l=>l.rotation.x=THREE.MathUtils.damp(l.rotation.x,0,8,dt));resolveBuildingCollision(player.position,.9);for(const c of [mainCar,...parked,...traffic]){const dx=player.position.x-c.position.x,dz=player.position.z-c.position.z,d=Math.hypot(dx,dz);if(d<2.5){player.position.x=c.position.x+(dx/(d||.001))*2.5;player.position.z=c.position.z+(dz/(d||.001))*2.5}}player.position.x=clamp(player.position.x,-430,430);player.position.z=clamp(player.position.z,-430,430)}
-else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,left=keys.KeyA||keys.ArrowLeft||touch.left||keys.ArrowLeft,right=keys.KeyD||keys.ArrowRight||touch.right;
+else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,handbrake=keys.Space||touch.handbrake,left=keys.KeyA||keys.ArrowLeft||touch.left,right=keys.KeyD||keys.ArrowRight||touch.right;
 const steer=(left?1:0)-(right?1:0),oldX=activeCar.position.x,oldZ=activeCar.position.z;
 if(gas)state.speed=Math.min(38,state.speed+19*dt);
-else if(brake)state.speed=state.speed>0?Math.max(0,state.speed-28*dt):Math.max(-9,state.speed-8*dt);
+else if(brake)state.speed=state.speed>0?Math.max(0,state.speed-34*dt):Math.max(-7,state.speed-10*dt);
+else if(handbrake)state.speed=THREE.MathUtils.damp(state.speed,0,7.5,dt);
 else state.speed=THREE.MathUtils.damp(state.speed,0,1.15,dt);
 state.steering=THREE.MathUtils.damp(state.steering,steer,5.5,dt);
-if(Math.abs(state.speed)>.35)activeCar.rotation.y+=state.steering*dt*(.22+Math.min(1,Math.abs(state.speed)/18)*.72)*Math.sign(state.speed);
+if(Math.abs(state.speed)>.35)activeCar.rotation.y+=state.steering*dt*(.22+Math.min(1,Math.abs(state.speed)/18)*.72)*(handbrake?1.45:1)*Math.sign(state.speed);
 activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;
 activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;
 let hit=buildingCollision.some(b=>activeCar.position.x+1.15>b.x-b.halfX&&activeCar.position.x-1.15<b.x+b.halfX&&activeCar.position.z+2.35>b.z-b.halfZ&&activeCar.position.z-2.35<b.z+b.halfZ);
