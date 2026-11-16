@@ -121,7 +121,7 @@ const mainCar=makeCar();mainCar.position.set(7,0,3);scene.add(mainCar);
 const parked=[];for(let i=0;i<6;i++){const c=makeCar([0x9c252b,0xc5c8c8,0x202326,0x9c783f,0x315d49,0xeeeeea][i]);c.position.set(-14+(i%2)*5,0,-42-Math.floor(i/2)*12);c.rotation.y=Math.PI;scene.add(c);parked.push(c)}
 const traffic=[];for(let i=0;i<8;i++){const c=makeCar([0xeeeeea,0x777f85,0x872c2c,0x253b50][i%4]);c.scale.setScalar(.8);c.rotation.y=-Math.PI/2;c.position.set(-360+i*90,0,10+(i%2)*9);c.userData.trafficSpeed=5+(i%4)*2;scene.add(c);traffic.push(c)}
 const checkpointTargets=[new THREE.Vector3(0,0,-105),new THREE.Vector3(105,0,-210),new THREE.Vector3(-105,0,-315),new THREE.Vector3(0,0,0)];
-let checkpointIndex=0,cash=2500;
+let checkpointIndex=0,cash=2500,missionActive=false,missionTime=60,missionProgress=0;
 const checkpoint=new THREE.Group(),checkpointRing=new THREE.Mesh(new THREE.TorusGeometry(3.5,.22,12,48),new THREE.MeshStandardMaterial({color:0x70dfff,emissive:0x22a8ff,emissiveIntensity:1.5,metalness:.3,roughness:.25}));
 checkpointRing.rotation.x=Math.PI/2;checkpointRing.position.y=2.4;checkpoint.add(checkpointRing);
 const checkpointBeam=new THREE.Mesh(new THREE.CylinderGeometry(.08,.5,7,12,1,true),new THREE.MeshBasicMaterial({color:0x51cfff,transparent:true,opacity:.14,side:THREE.DoubleSide}));
@@ -173,7 +173,7 @@ new GLTFLoader().load(alternateCarUrl,(gltf)=>{
  toast('Second CC0 vehicle model loaded');
 },undefined,(e)=>console.warn('Alternate car unavailable',e));
 
-const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,missionActive=false,missionTime=60,missionProgress=0,saveClock=0;
+const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,saveClock=0;
 try{const saved=JSON.parse(localStorage.getItem('metro-city-save')||'null');if(saved){cash=Math.max(0,Number(saved.cash)||2500);if(saved.position)player.position.set(saved.position[0]||0,0,saved.position[1]||0);if(saved.car)mainCar.position.set(saved.car[0]||7,0,saved.car[1]||3);document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US')}}catch(e){console.warn('Save data unavailable',e)}
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
