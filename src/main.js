@@ -184,7 +184,7 @@ let networkPeer=null,networkConnection=null,remotePlayer=null,remoteCar=null,net
 let cameraMode='chase';
 document.querySelector('#camera-toggle').addEventListener('click',()=>{cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')});
 function networkStatus(message){document.querySelector('#network-status').textContent=message}
-function ensureRemote(){if(remotePlayer)return;remotePlayer=player.clone(true);remotePlayer.visible=false;scene.add(remotePlayer);remoteCar=makeCar(0x9a3540);remoteCar.visible=false;scene.add(remoteCar)}
+function ensureRemote(){if(remotePlayer)return;remotePlayer=player.clone(true);remotePlayer.visible=false;scene.add(remotePlayer);remoteCar=mainCar.clone(true);remoteCar.visible=false;scene.add(remoteCar)}
 function acceptNetworkConnection(connection){
  if(networkConnection&&networkConnection.open)networkConnection.close();
  networkConnection=connection;ensureRemote();
@@ -242,7 +242,7 @@ document.querySelector('#enter').addEventListener('click',enterExit);document.qu
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit();if(e.code==='KeyC'&&state.mode==='drive'){cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')}});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
 function update(dt){elapsed+=dt;
-for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?Math.PI/2:-Math.PI/2}
+for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?-Math.PI/2:Math.PI/2}
 for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
 if(missionActive){missionTime-=dt;if(missionTime<=0)finishMission(false)}
