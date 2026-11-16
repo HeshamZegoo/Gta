@@ -24,9 +24,9 @@ All vehicle models listed below are generic/unbranded models. Their stated licen
 - Runtime URL: https://files.innerscene.com/library/generic-mid-engine-supercar-73f252c5/b41b620d8a8890b1b70a/generic-mid-engine-supercar.glb
 
 ## Environment lighting
-- Poly Haven HDRI: Lebombo (1K)
-- Source: https://polyhaven.com/a/lebombo
+- Poly Haven HDRI: Urban Street 01 (1K)
+- Source: https://polyhaven.com/a/urban_street_01
 - License: CC0
-- Runtime URL: https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/lebombo_1k.hdr
+- Runtime URL: https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/urban_street_01_1k.hdr
 
 Three.js is distributed under its MIT license. Asset licenses apply to the individual assets, not to the game code.
