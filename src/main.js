@@ -67,7 +67,7 @@ function building(x,z,w,d,h){
  for(let i=0;i<2+Math.floor(rand()*3);i++){const ac=new THREE.Mesh(new THREE.BoxGeometry(1.4,.85,1.1),mat(0x727b80,.65,.25));ac.position.set((rand()-.5)*w*.55,h+.72,(rand()-.5)*d*.45);group.add(ac)}
  const storefront=new THREE.Mesh(new THREE.BoxGeometry(w*.72,2.4,.12),new THREE.MeshPhysicalMaterial({color:0x17303b,roughness:.12,metalness:.45,transparent:true,opacity:.88,clearcoat:1}));storefront.position.set(0,1.35,d/2+.1);group.add(storefront);
  const awning=new THREE.Mesh(new THREE.BoxGeometry(w*.82,.16,1.1),mat([0x9a4336,0x345d72,0x9b8b66][idx%3],.7));awning.position.set(0,2.7,d/2+.55);group.add(awning);
- group.position.set(x,0,z);scene.add(group);buildingCollision.push({x,z,r:Math.max(w,d)*.56});
+ group.position.set(x,0,z);scene.add(group);buildingCollision.push({x,z,halfX:w/2+.35,halfZ:d/2+.35});
 }
 for(let gx=-3;gx<=3;gx++)for(let gz=-3;gz<=3;gz++){if(gx===0&&gz===0)continue;const cx=gx*105,cz=gz*105;for(let n=0;n<4;n++){const x=cx+(n%2?1:-1)*(21+rand()*14),z=cz+(n<2?-1:1)*(21+rand()*14);building(x,z,17+rand()*13,17+rand()*13,13+rand()*65)}}
 const leafMats=[mat(0x294c38,1),mat(0x385c42,1),mat(0x466b49,1),mat(0x55774d,1)];
@@ -104,7 +104,7 @@ for(const side of [-1,1]){
 const pedestrians=[];
 for(let i=0;i<12;i++){
  const npc=player.clone(true);npc.position.set(-300+i*52,0,i%2?18.8:-18.8);npc.rotation.y=i%2?Math.PI:0;
- npc.userData.walkSpeed=(i%2?1:-1)*(1.05+(i%4)*.22);npc.userData.phase=i*.8;scene.add(npc);pedestrians.push(npc);
+ npc.userData.walkSpeed=(i%2?1:-1)*(1.05+(i%4)*.22);npc.userData.phase=i*.8;npc.userData.walkGroups=npc.children.filter(child=>child.isGroup);scene.add(npc);pedestrians.push(npc);
 }
 // Detailed game-ready placeholder coupe; asset loader pass will replace this with licensed GLB.
 function makeCar(color=0x1d526e){const car=new THREE.Group(),paint=new THREE.MeshPhysicalMaterial({color,metalness:.78,roughness:.23,clearcoat:1,clearcoatRoughness:.12}),glass=new THREE.MeshPhysicalMaterial({color:0x142b3a,roughness:.14,metalness:.48,clearcoat:1,transparent:true,opacity:.9});
@@ -174,10 +174,10 @@ new GLTFLoader().load(alternateCarUrl,(gltf)=>{
 },undefined,(e)=>console.warn('Alternate car unavailable',e));
 
 const state={mode:'walk',speed:0,heading:0,steering:0},keys={},touch={};let activeCar=mainCar,last=performance.now(),elapsed=0,saveClock=0;
-try{const saved=JSON.parse(localStorage.getItem('metro-city-save')||'null');if(saved){cash=Math.max(0,Number(saved.cash)||2500);if(saved.position)player.position.set(saved.position[0]||0,0,saved.position[1]||0);if(saved.car)mainCar.position.set(saved.car[0]||7,0,saved.car[1]||3);document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US')}}catch(e){console.warn('Save data unavailable',e)}
+try{const saved=JSON.parse(localStorage.getItem('metro-city-save')||'null');if(saved){cash=Math.max(0,Number(saved.cash)||2500);if(saved.position)player.position.set(saved.position[0]||0,0,saved.position[1]||0);if(saved.car)mainCar.position.set(saved.car[0]||7,0,saved.car[1]||3);if(Array.isArray(saved.vehicles))saved.vehicles.forEach((p,i)=>{const car=[mainCar,...parked][i];if(car&&Array.isArray(p))car.position.set(Number(p[0])||0,0,Number(p[1])||0)});if(Number.isInteger(saved.activeCarIndex)&&saved.activeCarIndex>=0&&saved.activeCarIndex<1+parked.length)activeCar=[mainCar,...parked][saved.activeCarIndex];document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US')}}catch(e){console.warn('Save data unavailable',e)}
 
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-function resolveBuildingCollision(position,radius){for(const b of buildingCollision){const dx=position.x-b.x,dz=position.z-b.z,min=b.r+radius,d2=dx*dx+dz*dz;if(d2<min*min){const d=Math.sqrt(d2)||.001;position.x=b.x+dx/d*min;position.z=b.z+dz/d*min}}}
+function resolveBuildingCollision(position,radius){for(const b of buildingCollision){const closestX=clamp(position.x,b.x-b.halfX,b.x+b.halfX),closestZ=clamp(position.z,b.z-b.halfZ,b.z+b.halfZ),dx=position.x-closestX,dz=position.z-closestZ,d2=dx*dx+dz*dz;if(d2<radius*radius){if(d2>.0001){const d=Math.sqrt(d2),push=(radius-d)/d;position.x+=dx*push;position.z+=dz*push}else{const px=b.halfX+radius-Math.abs(position.x-b.x),pz=b.halfZ+radius-Math.abs(position.z-b.z);if(px<pz)position.x+=(position.x<b.x?-1:1)*px;else position.z+=(position.z<b.z?-1:1)*pz}}}}
 function vehicleBlocked(car){for(const other of [mainCar,...parked,...traffic]){if(other===car||!other.visible)continue;const dx=car.position.x-other.position.x,dz=car.position.z-other.position.z;if(dx*dx+dz*dz<3.7*3.7)return true}return false}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2200)}
 let networkPeer=null,networkConnection=null,remotePlayer=null,remoteCar=null,networkSendClock=0;
@@ -193,8 +193,9 @@ function acceptNetworkConnection(connection){
   if(!data||!Array.isArray(data.position))return;
   const target=data.mode==='drive'?remoteCar:remotePlayer,other=data.mode==='drive'?remotePlayer:remoteCar;
   target.visible=true;other.visible=false;
-  target.position.set(Number(data.position[0])||0,0,Number(data.position[1])||0);
-  target.rotation.y=Number(data.rotation)||0;
+  target.userData.netTarget ||= target.position.clone();
+  target.userData.netTarget.set(clamp(Number(data.position[0])||0,-430,430),0,clamp(Number(data.position[1])||0,-430,430));
+  target.userData.netYaw=Number.isFinite(Number(data.rotation))?Number(data.rotation):0;
  });
  connection.on('close',()=>{networkStatus('Peer disconnected');if(remotePlayer)remotePlayer.visible=false;if(remoteCar)remoteCar.visible=false});
  connection.on('error',e=>networkStatus('Connection error: '+e.type));
@@ -237,12 +238,12 @@ function drawMinimap(){
  const yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;
  ctx.save();ctx.translate(cx,cy);ctx.rotate(-yaw);ctx.fillStyle='#9de3ff';ctx.strokeStyle='#07131b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(6,7);ctx.lineTo(0,4);ctx.lineTo(-6,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
 }
-function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c of [mainCar,...parked]){const d=player.position.distanceTo(c.position);if(d<dist){dist=d;found=c}}if(found){activeCar=found;state.mode='drive';player.visible=false;document.querySelector('#drive-pad').style.display='grid';document.querySelector('#camera-toggle').style.display='block';document.querySelector('.move-pad').style.display='none';document.querySelector('.action-pad').style.display='none';document.querySelector('#speed').style.display='block';toast('Vehicle entered · Drive safe')}else toast('Walk closer to a parked car')}else{state.mode='walk';state.speed=0;player.visible=true;player.position.copy(activeCar.position).add(new THREE.Vector3(2,0,0));document.querySelector('#drive-pad').style.display='none';document.querySelector('#camera-toggle').style.display='none';cameraMode='chase';document.querySelector('.move-pad').style.display='block';document.querySelector('.action-pad').style.display='flex';document.querySelector('#speed').style.display='none';toast('You left the vehicle')}}
-document.querySelector('#enter').addEventListener('click',enterExit);document.querySelector('#run').addEventListener('pointerdown',()=>keys.ShiftLeft=true);for(const ev of ['pointerup','pointercancel'])document.querySelector('#run').addEventListener(ev,()=>keys.ShiftLeft=false);
+function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c of [mainCar,...parked]){const d=player.position.distanceTo(c.position);if(d<dist){dist=d;found=c}}if(found){activeCar=found;state.mode='drive';player.visible=false;document.querySelector('#drive-pad').style.display='grid';document.querySelector('#camera-toggle').style.display='block';document.querySelector('.move-pad').style.display='none';document.querySelector('.action-pad').style.display='none';document.querySelector('#speed').style.display='block';toast('Vehicle entered · Drive safe')}else toast('Walk closer to a parked car')}else{state.mode='walk';state.speed=0;player.visible=true;player.position.copy(activeCar.position).add(new THREE.Vector3(2,0,0).applyAxisAngle(new THREE.Vector3(0,1,0),activeCar.rotation.y));document.querySelector('#drive-pad').style.display='none';document.querySelector('#camera-toggle').style.display='none';cameraMode='chase';document.querySelector('.move-pad').style.display='block';document.querySelector('.action-pad').style.display='flex';document.querySelector('#speed').style.display='none';toast('You left the vehicle')}}
+document.querySelector('#enter').addEventListener('click',enterExit);document.querySelector('#run').addEventListener('pointerdown',()=>keys.ShiftLeft=true);for(const ev of ['pointerup','pointercancel','lostpointercapture'])document.querySelector('#run').addEventListener(ev,()=>keys.ShiftLeft=false);document.querySelector('#run').addEventListener('pointerdown',e=>{try{e.currentTarget.setPointerCapture(e.pointerId)}catch(_){}});
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit();if(e.code==='KeyC'&&state.mode==='drive'){cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')}});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
-function update(dt){elapsed+=dt;
-for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?-Math.PI/2:Math.PI/2}
+function update(dt){elapsed+=dt;for(const remote of [remotePlayer,remoteCar])if(remote&&remote.visible&&remote.userData.netTarget){remote.position.lerp(remote.userData.netTarget,1-Math.exp(-12*dt));remote.rotation.y=THREE.MathUtils.damp(remote.rotation.y,remote.userData.netYaw||0,12,dt)}
+for(const npc of pedestrians){npc.position.x+=npc.userData.walkSpeed*dt;if(npc.position.x>390)npc.position.x=-390;if(npc.position.x< -390)npc.position.x=390;npc.position.y=.025+Math.sin(elapsed*7+npc.userData.phase)*.035;npc.rotation.y=npc.userData.walkSpeed>0?Math.PI/2:-Math.PI/2;const swing=Math.sin(elapsed*7+npc.userData.phase)*.38;for(let i=0;i<2;i++)if(npc.userData.walkGroups[i])npc.userData.walkGroups[i].rotation.x=i===0?swing:-swing;for(let i=2;i<4;i++)if(npc.userData.walkGroups[i])npc.userData.walkGroups[i].rotation.x=i===2?-swing*.65:swing*.65}
 for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
 if(missionActive){missionTime-=dt;document.querySelector('#mission-sub').textContent='Time trial · '+missionProgress+'/4 · '+Math.max(0,Math.ceil(missionTime))+'s';if(missionTime<=0)finishMission(false)}
@@ -260,7 +261,7 @@ state.steering=THREE.MathUtils.damp(state.steering,steer,5.5,dt);
 if(Math.abs(state.speed)>.35)activeCar.rotation.y+=state.steering*dt*(.22+Math.min(1,Math.abs(state.speed)/18)*.72)*Math.sign(state.speed);
 activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;
 activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;
-let hit=buildingCollision.some(b=>Math.hypot(activeCar.position.x-b.x,activeCar.position.z-b.z)<b.r+1.5);
+let hit=buildingCollision.some(b=>activeCar.position.x+1.15>b.x-b.halfX&&activeCar.position.x-1.15<b.x+b.halfX&&activeCar.position.z+2.35>b.z-b.halfZ&&activeCar.position.z-2.35<b.z+b.halfZ);
 if(!hit)hit=vehicleBlocked(activeCar);
 if(hit){activeCar.position.x=oldX;activeCar.position.z=oldZ;state.speed*=-.16;toast('Impact · Vehicle damaged')}
 activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);
@@ -274,7 +275,7 @@ if(state.mode==='drive'&&cameraMode==='cockpit'){
  const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);
  camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)
 }}
-function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z]}))}catch(e){}}
+function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z],vehicles:[mainCar,...parked].map(c=>[c.position.x,c.position.z]),activeCarIndex:[mainCar,...parked].indexOf(activeCar)}))}catch(e){}}
 networkSendClock+=dt;if(networkConnection&&networkConnection.open&&networkSendClock>.1){networkSendClock=0;const p=state.mode==='drive'?activeCar.position:player.position;try{networkConnection.send({mode:state.mode,position:[p.x,p.z],rotation:state.mode==='drive'?activeCar.rotation.y:player.rotation.y,speed:state.speed})}catch(e){networkStatus('Sync interrupted')}}}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
