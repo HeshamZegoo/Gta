@@ -1,16 +1,18 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/environments/RoomEnvironment.js';
+import { RGBELoader } from 'https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/loaders/RGBELoader.js';
 
 const canvas=document.querySelector('#world'),hud=document.querySelector('#hud'),loading=document.querySelector('#loading');
 const mapCanvas=document.querySelector('#minimap'),mapCtx=mapCanvas.getContext('2d');
 const scene=new THREE.Scene();scene.background=new THREE.Color(0x91aebe);scene.fog=new THREE.FogExp2(0x91aebe,.00165);
 const camera=new THREE.PerspectiveCamera(62,innerWidth/innerHeight,.1,1500);
 const renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'});
-const pixelCap=innerWidth>1500?2:1.5;renderer.setPixelRatio(Math.min(devicePixelRatio,pixelCap));renderer.setSize(innerWidth,innerHeight);
+const pixelCap=innerWidth>1400?2:innerWidth>700?1.5:1.25;renderer.setPixelRatio(Math.min(devicePixelRatio,pixelCap));renderer.setSize(innerWidth,innerHeight);
 renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.18;
 renderer.useLegacyLights=false;renderer.shadowMap.autoUpdate=true;renderer.info.autoReset=true;
 const pmremGenerator=new THREE.PMREMGenerator(renderer);scene.environment=pmremGenerator.fromScene(new RoomEnvironment(),.04).texture;pmremGenerator.dispose();
+const hdrGenerator=new THREE.PMREMGenerator(renderer);new RGBELoader().setDataType(THREE.HalfFloatType).load('https://dl.polyhaven.org/file/ph-assets/HDRIs/hdr/1k/lebombo_1k.hdr',hdr=>{const env=hdrGenerator.fromEquirectangular(hdr).texture;scene.environment=env;hdr.dispose();hdrGenerator.dispose()},undefined,error=>{console.warn('Outdoor HDRI unavailable; studio reflections remain active.',error);hdrGenerator.dispose()});
 renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 const hemi=new THREE.HemisphereLight(0xd9edff,0x53606a,2.15);scene.add(hemi);
 const sun=new THREE.DirectionalLight(0xffdfbd,3.2);sun.position.set(-160,230,100);sun.castShadow=true;sun.shadow.mapSize.set(innerWidth>900?4096:2048,innerWidth>900?4096:2048);sun.shadow.camera.left=-85;sun.shadow.camera.right=85;sun.shadow.camera.top=85;sun.shadow.camera.bottom=-85;sun.shadow.camera.near=1;sun.shadow.camera.far=360;sun.shadow.bias=-.0002;scene.add(sun);
@@ -293,7 +295,7 @@ if(state.mode==='drive'&&cameraMode==='cockpit'){
 }}
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z],vehicles:[mainCar,...parked].map(c=>[c.position.x,c.position.z]),activeCarIndex:[mainCar,...parked].indexOf(activeCar)}))}catch(e){}}
 networkSendClock+=dt;if(networkConnection&&networkConnection.open&&networkSendClock>.1){networkSendClock=0;const p=state.mode==='drive'?activeCar.position:player.position;try{networkConnection.send({mode:state.mode,position:[p.x,p.z],rotation:state.mode==='drive'?activeCar.rotation.y:player.rotation.y,speed:state.speed})}catch(e){networkStatus('Sync interrupted')}}}
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1400?2:innerWidth>700?1.5:1.25))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
 setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
 setTimeout(()=>{if(loading.isConnected){loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);if(!carAssetReady)toast('City ready · using local fallback vehicle')}},12000);
