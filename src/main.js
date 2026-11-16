@@ -48,6 +48,14 @@ car.userData.wheels=wheels;return car}
 const mainCar=makeCar();mainCar.position.set(7,0,3);scene.add(mainCar);
 const parked=[];for(let i=0;i<6;i++){const c=makeCar([0x9c252b,0xc5c8c8,0x202326,0x9c783f,0x315d49,0xeeeeea][i]);c.position.set(-14+(i%2)*5,0,-42-Math.floor(i/2)*12);c.rotation.y=Math.PI;scene.add(c);parked.push(c)}
 const traffic=[];for(let i=0;i<8;i++){const c=makeCar([0xeeeeea,0x777f85,0x872c2c,0x253b50][i%4]);c.scale.setScalar(.8);c.rotation.y=-Math.PI/2;c.position.set(-360+i*90,0,10+(i%2)*9);c.userData.trafficSpeed=5+(i%4)*2;scene.add(c);traffic.push(c)}
+const checkpointTargets=[new THREE.Vector3(0,0,-105),new THREE.Vector3(105,0,-210),new THREE.Vector3(-105,0,-315),new THREE.Vector3(0,0,0)];
+let checkpointIndex=0,cash=2500;
+const checkpoint=new THREE.Group(),checkpointRing=new THREE.Mesh(new THREE.TorusGeometry(3.5,.22,12,48),new THREE.MeshStandardMaterial({color:0x70dfff,emissive:0x22a8ff,emissiveIntensity:1.5,metalness:.3,roughness:.25}));
+checkpointRing.rotation.x=Math.PI/2;checkpointRing.position.y=2.4;checkpoint.add(checkpointRing);
+const checkpointBeam=new THREE.Mesh(new THREE.CylinderGeometry(.08,.5,7,12,1,true),new THREE.MeshBasicMaterial({color:0x51cfff,transparent:true,opacity:.14,side:THREE.DoubleSide}));
+checkpointBeam.position.y=3.5;checkpoint.add(checkpointBeam);scene.add(checkpoint);
+function setCheckpoint(){checkpoint.position.copy(checkpointTargets[checkpointIndex]);document.querySelector('#mission-sub').textContent='Drive through the blue marker · Reward $500';}
+setCheckpoint();
 // Load a verified CC0 vehicle model and replace the temporary geometry cars.
 const carAssetUrl='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/main/spectral_gt_rs_game_ready.glb';
 const assetLoader=new GLTFLoader();
@@ -108,6 +116,11 @@ document.querySelector('#enter').addEventListener('click',enterExit);document.qu
 addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit()});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
 function update(dt){elapsed+=dt;for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
+checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
+if(state.mode==='drive'&&activeCar.position.distanceTo(checkpoint.position)<6){
+ cash+=500;document.querySelector('#cash-value').textContent=cash.toLocaleString('en-US');
+ checkpointIndex=(checkpointIndex+1)%checkpointTargets.length;setCheckpoint();toast('Checkpoint complete · +$500');
+}
 if(state.mode==='walk'){const f=(keys.KeyW||keys.ArrowUp||touch.forward?1:0)-(keys.KeyS||keys.ArrowDown||touch.back?1:0),s=(keys.KeyD||keys.ArrowRight||touch.right?1:0)-(keys.KeyA||keys.ArrowLeft||touch.left?1:0);if(f||s){const angle=Math.atan2(s,-f);player.rotation.y=THREE.MathUtils.damp(player.rotation.y,angle,9,dt);const v=(keys.ShiftLeft||keys.ShiftRight?11:5.5);player.position.x+=Math.sin(angle)*v*dt;player.position.z-=Math.cos(angle)*v*dt;legs.forEach((l,i)=>l.rotation.x=Math.sin(elapsed*10+i*Math.PI)*.48)}else legs.forEach(l=>l.rotation.x=THREE.MathUtils.damp(l.rotation.x,0,8,dt));resolveBuildingCollision(player.position,.9);for(const c of [mainCar,...parked]){const dx=player.position.x-c.position.x,dz=player.position.z-c.position.z,d=Math.hypot(dx,dz);if(d<2.5){player.position.x=c.position.x+(dx/(d||.001))*2.5;player.position.z=c.position.z+(dz/(d||.001))*2.5}}player.position.x=clamp(player.position.x,-430,430);player.position.z=clamp(player.position.z,-430,430)}
 else{const gas=keys.KeyW||keys.ArrowUp||touch.gas,brake=keys.KeyS||keys.ArrowDown||touch.brake,left=keys.KeyA||keys.ArrowLeft||touch.left,right=keys.KeyD||keys.ArrowRight||touch.right;state.speed=THREE.MathUtils.damp(state.speed,gas?31:brake?-10:0,gas||brake?1.8:1.1,dt);if(Math.abs(state.speed)>.4)activeCar.rotation.y+=((left?1:0)-(right?1:0))*dt*(.85+Math.abs(state.speed)*.025)*Math.sign(state.speed);activeCar.position.x+=Math.sin(activeCar.rotation.y)*state.speed*dt;activeCar.position.z-=Math.cos(activeCar.rotation.y)*state.speed*dt;activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);resolveBuildingCollision(activeCar.position,2.25);if(vehicleBlocked(activeCar)){state.speed=0;toast('Collision · Vehicle stopped')}activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
 const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)}
