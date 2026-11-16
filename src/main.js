@@ -96,5 +96,6 @@ function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/10
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
 for(let i=0;i<=10;i++)setTimeout(()=>document.querySelector('#load-progress').style.width=i*10+'%',i*110);
 setTimeout(()=>{if(!carAssetReady&&loading.isConnected){loading.querySelector('.loading-sub').textContent='PREPARING CITY · VEHICLE DOWNLOAD';toast('Welcome to Metro City · Find a car')}},900);
+setTimeout(()=>{if(loading.isConnected){loading.style.opacity='0';hud.style.opacity='1';setTimeout(()=>loading.remove(),850);if(!carAssetReady)toast('City ready · using local fallback vehicle')}},12000);
 setInterval(()=>document.querySelector('#clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',hour12:false}),1000);
 requestAnimationFrame(frame);
