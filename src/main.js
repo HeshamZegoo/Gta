@@ -155,6 +155,8 @@ function resolveBuildingCollision(position,radius){for(const b of buildingCollis
 function vehicleBlocked(car){for(const other of [mainCar,...parked,...traffic]){if(other===car||!other.visible)continue;const dx=car.position.x-other.position.x,dz=car.position.z-other.position.z;if(dx*dx+dz*dz<3.7*3.7)return true}return false}
 function toast(s){const t=document.querySelector('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>t.classList.remove('show'),2200)}
 let networkPeer=null,networkConnection=null,remotePlayer=null,remoteCar=null,networkSendClock=0;
+let cameraMode='chase';
+document.querySelector('#camera-toggle').addEventListener('click',()=>{cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')});
 function networkStatus(message){document.querySelector('#network-status').textContent=message}
 function ensureRemote(){if(remotePlayer)return;remotePlayer=player.clone(true);remotePlayer.visible=false;scene.add(remotePlayer);remoteCar=makeCar(0x9a3540);remoteCar.visible=false;scene.add(remoteCar)}
 function acceptNetworkConnection(connection){
@@ -209,9 +211,9 @@ function drawMinimap(){
  const yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;
  ctx.save();ctx.translate(cx,cy);ctx.rotate(-yaw);ctx.fillStyle='#9de3ff';ctx.strokeStyle='#07131b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-9);ctx.lineTo(6,7);ctx.lineTo(0,4);ctx.lineTo(-6,7);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
 }
-function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c of [mainCar,...parked]){const d=player.position.distanceTo(c.position);if(d<dist){dist=d;found=c}}if(found){activeCar=found;state.mode='drive';player.visible=false;document.querySelector('#drive-pad').style.display='grid';document.querySelector('.move-pad').style.display='none';document.querySelector('.action-pad').style.display='none';document.querySelector('#speed').style.display='block';toast('Vehicle entered · Drive safe')}else toast('Walk closer to a parked car')}else{state.mode='walk';state.speed=0;player.visible=true;player.position.copy(activeCar.position).add(new THREE.Vector3(2,0,0));document.querySelector('#drive-pad').style.display='none';document.querySelector('.move-pad').style.display='block';document.querySelector('.action-pad').style.display='flex';document.querySelector('#speed').style.display='none';toast('You left the vehicle')}}
+function enterExit(){if(state.mode==='walk'){let found=null,dist=7;for(const c of [mainCar,...parked]){const d=player.position.distanceTo(c.position);if(d<dist){dist=d;found=c}}if(found){activeCar=found;state.mode='drive';player.visible=false;document.querySelector('#drive-pad').style.display='grid';document.querySelector('#camera-toggle').style.display='block';document.querySelector('.move-pad').style.display='none';document.querySelector('.action-pad').style.display='none';document.querySelector('#speed').style.display='block';toast('Vehicle entered · Drive safe')}else toast('Walk closer to a parked car')}else{state.mode='walk';state.speed=0;player.visible=true;player.position.copy(activeCar.position).add(new THREE.Vector3(2,0,0));document.querySelector('#drive-pad').style.display='none';document.querySelector('#camera-toggle').style.display='none';cameraMode='chase';document.querySelector('.move-pad').style.display='block';document.querySelector('.action-pad').style.display='flex';document.querySelector('#speed').style.display='none';toast('You left the vehicle')}}
 document.querySelector('#enter').addEventListener('click',enterExit);document.querySelector('#run').addEventListener('pointerdown',()=>keys.ShiftLeft=true);for(const ev of ['pointerup','pointercancel'])document.querySelector('#run').addEventListener(ev,()=>keys.ShiftLeft=false);
-addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit()});addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code==='KeyE')enterExit();if(e.code==='KeyC'&&state.mode==='drive'){cameraMode=cameraMode==='chase'?'cockpit':'chase';toast(cameraMode==='cockpit'?'Cockpit camera':'Chase camera')}});addEventListener('keyup',e=>keys[e.code]=false);
 document.querySelectorAll('[data-move],[data-drive]').forEach(b=>{const k=b.dataset.move||b.dataset.drive;b.addEventListener('pointerdown',e=>{e.preventDefault();touch[k]=1;b.setPointerCapture(e.pointerId)});for(const ev of ['pointerup','pointercancel','lostpointercapture'])b.addEventListener(ev,()=>touch[k]=0)});
 function update(dt){elapsed+=dt;for(const t of traffic){t.position.x+=t.userData.trafficSpeed*dt;if(t.position.x>390)t.position.x=-390}
 checkpointRing.rotation.z+=dt*.55;checkpoint.position.y=.35+Math.sin(elapsed*2)*.18;
@@ -235,7 +237,15 @@ if(!hit)hit=vehicleBlocked(activeCar);
 if(hit){activeCar.position.x=oldX;activeCar.position.z=oldZ;state.speed*=-.16;toast('Impact · Vehicle damaged')}
 activeCar.userData.wheels.forEach(w=>w.rotation.x-=state.speed*dt*1.7);
 activeCar.position.x=clamp(activeCar.position.x,-430,430);activeCar.position.z=clamp(activeCar.position.z,-430,430);document.querySelector('#speed').innerHTML=String(Math.round(Math.abs(state.speed)*3.6)).padStart(3,'0')+' <small>KM/H</small>'}
-const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)}
+const target=state.mode==='drive'?activeCar.position:player.position,yaw=state.mode==='drive'?activeCar.rotation.y:player.rotation.y;
+if(state.mode==='drive'&&cameraMode==='cockpit'){
+ const offset=new THREE.Vector3(-.48,1.28,-.18).applyAxisAngle(new THREE.Vector3(0,1,0),yaw);
+ camera.position.lerp(new THREE.Vector3(target.x+offset.x,target.y+offset.y,target.z+offset.z),1-Math.exp(-9*dt));
+ camera.lookAt(target.x+Math.sin(yaw)*24,target.y+1.25,target.z-Math.cos(yaw)*24);
+}else{
+ const desired=new THREE.Vector3(target.x+Math.sin(yaw)*1.5,target.y+3.3,target.z+Math.cos(yaw)*1.5+8);
+ camera.position.lerp(desired,1-Math.exp(-4*dt));camera.lookAt(target.x,target.y+1.15,target.z)
+}}
 function frame(now){requestAnimationFrame(frame);const dt=Math.min((now-last)/1000,.04);last=now;update(dt);drawMinimap();renderer.render(scene,camera);saveClock+=dt;if(saveClock>5){saveClock=0;try{localStorage.setItem('metro-city-save',JSON.stringify({cash,position:[player.position.x,player.position.z],car:[mainCar.position.x,mainCar.position.z]}))}catch(e){}}
 networkSendClock+=dt;if(networkConnection&&networkConnection.open&&networkSendClock>.1){networkSendClock=0;const p=state.mode==='drive'?activeCar.position:player.position;try{networkConnection.send({mode:state.mode,position:[p.x,p.z],rotation:state.mode==='drive'?activeCar.rotation.y:player.rotation.y,speed:state.speed})}catch(e){networkStatus('Sync interrupted')}}}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth>1500?2:1.5))});
