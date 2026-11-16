@@ -30,13 +30,13 @@ Open `http://localhost:8080`.
 
 ## Vehicle assets and licensing
 
-The game loads three detailed generic vehicle models at runtime. Their sources, exact runtime URLs and license details are documented in [ASSET_CREDITS.md](./ASSET_CREDITS.md).
+The game loads five detailed generic vehicle models at runtime. Their sources, exact runtime URLs and license details are documented in [ASSET_CREDITS.md](./ASSET_CREDITS.md).
 
-All three remote models are optional: if a download or host fails, the detailed procedural fallback cars remain available. The game currently uses static vehicle meshes; model-specific wheel, steering, door and suspension animation is not fully integrated.
+All five remote models are optional: if a download or host fails, the detailed procedural fallback cars remain available. The game currently uses static vehicle meshes; model-specific wheel, steering, door and suspension animation is not fully integrated.
 
 ## Graphics and performance
 
-- Three.js WebGL rendering with ACES tone mapping, sRGB output, PBR materials, PMREM studio fallback reflections, Poly Haven Urban Street 01 HDR environment reflections, locally-following directional shadows and adaptive pixel ratio (up to 2x on large desktop displays).
+- Three.js WebGL rendering with ACES tone mapping, sRGB output, PBR materials, PMREM studio fallback reflections, Poly Haven Urban Street 01 HDR environment reflections, locally-following directional shadows and adaptive pixel ratio (up to 2x on large desktop displays), a procedural atmospheric sky dome and a city-street HDRI reflection environment.
 - Five distinct unbranded CC0 GLB cars are distributed across player, parked and traffic vehicles: Spectral GT RS, a generic 1990s JDM coupe, a mid-engine supercar, a four-door sedan and a compact SUV. The game keeps the procedural vehicle fallback if a remote asset cannot load.
 - HDR environment lighting improves physically based reflections, but the renderer is not HDR10 output and does not provide native 4K rendering on mobile.
 - NVIDIA DLSS is not a drop-in feature for this WebGL build and DLSS 5 is not integrated. A native PC engine build would be needed for that class of GPU feature.
