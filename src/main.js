@@ -22,7 +22,7 @@ const skyMaterial=new THREE.ShaderMaterial({side:THREE.BackSide,depthWrite:false
 const skyDome=new THREE.Mesh(new THREE.SphereGeometry(1400,48,24),skyMaterial);skyDome.frustumCulled=false;scene.add(skyDome);
 const mat=(c,r=.8,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
 const asphalt=mat(0x30383d,.96),curb=mat(0xaaa9a0),mark=mat(0xe4dfce),rubber=mat(0x101214),chrome=mat(0xaab8c1,.22,.85),sidewalkMat=mat(0x777b78,.98);
-const asphaltCanvas=document.createElement('canvas');asphaltCanvas.width=asphaltCanvas.height=512;const asphaltCtx=asphaltCanvas.getContext('2d');asphaltCtx.fillStyle='#30383d';asphaltCtx.fillRect(0,0,512,512);for(let i=0;i<26000;i++){const n=75+Math.floor(Math.random()*95);asphaltCtx.fillStyle='rgba('+n+','+n+','+n+','+(Math.random()*.22)+')';asphaltCtx.fillRect(Math.random()*512,Math.random()*512,1+Math.random()*2,1+Math.random()*2)}const asphaltTexture=new THREE.CanvasTexture(asphaltCanvas);asphaltTexture.wrapS=asphaltTexture.wrapT=THREE.RepeatWrapping;asphaltTexture.repeat.set(8,8);asphaltTexture.colorSpace=THREE.SRGBColorSpace;asphaltTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());asphalt.map=asphaltTexture;asphalt.bumpMap=asphaltTexture;asphalt.bumpScale=.035;
+const asphaltCanvas=document.createElement('canvas');asphaltCanvas.width=asphaltCanvas.height=512;const asphaltCtx=asphaltCanvas.getContext('2d');asphaltCtx.fillStyle='#30383d';asphaltCtx.fillRect(0,0,512,512);for(let i=0;i<3500;i++){const n=75+Math.floor(Math.random()*95);asphaltCtx.fillStyle='rgba('+n+','+n+','+n+','+(Math.random()*.22)+')';asphaltCtx.fillRect(Math.random()*512,Math.random()*512,1+Math.random()*2,1+Math.random()*2)}const asphaltTexture=new THREE.CanvasTexture(asphaltCanvas);asphaltTexture.wrapS=asphaltTexture.wrapT=THREE.RepeatWrapping;asphaltTexture.repeat.set(8,8);asphaltTexture.colorSpace=THREE.SRGBColorSpace;asphaltTexture.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());asphalt.map=asphaltTexture;asphalt.bumpMap=asphaltTexture;asphalt.bumpScale=.035;
 const ground=new THREE.Mesh(new THREE.PlaneGeometry(1200,1200),mat(0x647363));ground.rotation.x=-Math.PI/2;ground.position.y=-.15;ground.receiveShadow=true;scene.add(ground);
 // Road grid with lane dashes and pavements.
 function road(x,z,w,d){
@@ -49,7 +49,7 @@ const buildingCollision=[];
 function facadeMap(base){
  const c=document.createElement('canvas');c.width=512;c.height=512;const x=c.getContext('2d');
  const hex='#'+base.toString(16).padStart(6,'0');x.fillStyle=hex;x.fillRect(0,0,512,512);
- for(let i=0;i<9000;i++){const v=Math.floor(rand()*45);x.fillStyle='rgba('+v+','+v+','+v+','+(rand()*.12)+')';x.fillRect(rand()*512,rand()*512,2+rand()*5,2+rand()*5)}
+ for(let i=0;i<1200;i++){const v=Math.floor(rand()*45);x.fillStyle='rgba('+v+','+v+','+v+','+(rand()*.12)+')';x.fillRect(rand()*512,rand()*512,2+rand()*5,2+rand()*5)}
  for(let y=18;y<500;y+=48){for(let xx=18;xx<500;xx+=42){const ww=22+rand()*7,hh=25+rand()*8;x.fillStyle='#263b48';x.fillRect(xx, y, ww, hh);x.fillStyle='rgba(170,205,220,.35)';x.fillRect(xx+2,y+2,ww-4,2);x.fillStyle='rgba(7,15,20,.55)';x.fillRect(xx+ww*.48,y,2,hh);}}
  const t=new THREE.CanvasTexture(c);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());return t;
 }
